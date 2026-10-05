@@ -1,4 +1,7 @@
 import io
+import os
+import subprocess
+import sys
 import unittest
 
 from rich.console import Console
@@ -177,6 +180,35 @@ class RenderingTests(unittest.TestCase):
     def test_player_text_colors(self):
         self.assertEqual(t.player_text(X).style, "bold cyan")
         self.assertEqual(t.player_text(O).style, "bold magenta")
+
+
+class CommandLineTests(unittest.TestCase):
+    SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                          "tictactoe.py")
+
+    def _run(self, *args):
+        return subprocess.run([sys.executable, self.SCRIPT] + list(args),
+                              input="", capture_output=True, text=True,
+                              timeout=30)
+
+    def test_help(self):
+        for flag in ("--help", "-h"):
+            result = self._run(flag)
+            self.assertEqual(result.returncode, 0, flag)
+            self.assertIn("usage:", result.stdout, flag)
+            self.assertIn("unbeatable", result.stdout, flag)
+            # The game does not start.
+            self.assertNotIn("Goodbye", result.stdout, flag)
+
+    def test_unknown_argument(self):
+        result = self._run("--bogus")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("usage:", result.stderr)
+
+    def test_no_arguments_starts_game(self):
+        result = self._run()
+        self.assertEqual(result.returncode, 0)
+        self.assertIn("Goodbye", result.stdout)
 
 
 if __name__ == "__main__":

@@ -18,6 +18,9 @@ pip install -r requirements.txt
 python3 tictactoe.py
 ```
 
+Run `python3 tictactoe.py --help` (or `-h`) for a short summary of how to
+play.
+
 You choose whether to go first (you are X if you go first, O otherwise; X
 always moves first). The board is drawn as a grid, and each empty cell shows
 its number (1-9):

@@ -15,6 +15,7 @@ section) are pure functions, so they can be tested without any terminal
 interaction.
 """
 
+import argparse
 import sys
 from functools import lru_cache
 
@@ -295,7 +296,20 @@ def play_game():
     return result
 
 
-def main():
+def parse_args(argv=None):
+    """Parse command-line arguments (only ``-h``/``--help`` is supported)."""
+    parser = argparse.ArgumentParser(
+        description="Play tic-tac-toe in the terminal against an unbeatable "
+                    "minimax computer. You choose whether to go first (X "
+                    "always moves first), then enter a cell number 1-9 to "
+                    "move; cells are numbered left to right, top to bottom.",
+        epilog="After each game you can play again (y/n). "
+               "Press Ctrl+C or Ctrl+D to quit at any time.")
+    return parser.parse_args(argv)
+
+
+def main(argv=None):
+    parse_args(argv)
     console.print(Panel.fit(
         Text.assemble(
             ("Tic-tac-toe", "bold"), "\n",
