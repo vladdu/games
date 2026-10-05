@@ -31,10 +31,13 @@ An unknown name is an error that lists the valid names.
 `python3 tictactoe.py` is a shortcut that starts tic-tac-toe directly. Run
 `python3 -m games --help` (or `-h`) for a short summary of how to play.
 
-The code lives in the `games` package: `games/tictactoe.py` and
-`games/connectfour.py` each hold one Game type's rules, board rendering,
-computer opponent, Player I/O and Game loop, `games/framework.py` will hold
-what Game types share, and `games/__main__.py` is the entry point.
+The code lives in the `games` package. `games/framework.py` holds what every
+Game type shares: the Game type interface, the Game loop, Game events, the
+human and computer Players, the terminal Player I/O and the session.
+`games/tictactoe.py` and `games/connectfour.py` each hold one Game type: its
+rules, board rendering and (for now) its own computer search.
+`games/registry.py` lists the Game types by name, and `games/__main__.py` is
+the entry point.
 
 ## Tic-tac-toe
 
@@ -59,7 +62,7 @@ its number (1-9), laid out like a numeric keypad:
 ```
 
 Colors: X is bold cyan, O is bold magenta, and the guide numbers in empty
-cells are dim grey. The computer's most recent move is shown in reverse video,
+cells are dim grey. The most recent move is shown in reverse video,
 and when someone wins, the three winning cells are highlighted on a green
 background. Error messages are red, and the result is green (win), red (loss)
 or yellow (draw). When output is not a terminal (for example when piped),
@@ -121,7 +124,11 @@ AI never loses.
 
 Whole games are tested in-process: the game talks to the human only through a
 small Player I/O interface, so the tests play it with a scripted adapter and
-check the game events (moves, rejected moves, the result and winning line).
+check the Game events (moves, rejected moves and the result). Every Game type
+plays through the one Game loop in `games/framework.py`, and
+`tests/test_game_types.py` is a shared suite every registered Game type must
+pass (random playouts end with a result, legal moves are accepted, rejected
+moves are refused with a reason, typed moves parse back to the same move).
 The tests live in `tests/`. A golden-transcript test pipes a scripted session
 through the real program (both `python3 tictactoe.py` and `python3 -m games`)
 and compares its output with `golden_transcript.txt`; if you change the terminal

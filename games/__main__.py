@@ -3,13 +3,8 @@
 import argparse
 import sys
 
-from games import connectfour, tictactoe
-
-# Game type names on the command line, and how to start each one.
-GAME_TYPES = {
-    "tictactoe": tictactoe.run,
-    "connect-four": connectfour.run,
-}
+from games import framework
+from games.registry import GAME_TYPES
 
 
 def parse_args(argv=None):
@@ -34,7 +29,7 @@ def parse_args(argv=None):
 
 def main(argv=None):
     args = parse_args(argv)
-    return GAME_TYPES[args.game]()
+    return framework.run(GAME_TYPES[args.game])
 
 
 sys.exit(main())
