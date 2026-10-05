@@ -1,252 +1,255 @@
 import io
 import os
-import subprocess
-import sys
 import unittest
 
 from rich.console import Console
 from rich.style import Style
 
-import games.tictactoe as t
-from games.tictactoe import (X, O, EMPTY, DRAW, OUT_OF_RANGE, TAKEN,
-                             Started, Moved, MoveRejected, GameOver)
+from games import framework
+from games.framework import (DRAW, Computer, GameOver, Human, Moved,
+                             MoveRejected, Started, play_game)
+from games.tictactoe import (EMPTY, GAME_TYPE as game, O, OUT_OF_RANGE,
+                             TAKEN, State, X)
+from tests.support import (GOLDEN_INPUT, ROOT, ScriptedIO, golden_transcript,
+                           run_program)
 
 
-def board_from(s):
-    """Build a board from a 9-char string using X, O and '.' for empty."""
+def board_from(s, last_move=None):
+    """Build a state from a 9-char string using X, O and '.' for empty,
+    indexed left to right and top to bottom."""
     assert len(s) == 9
-    return tuple(EMPTY if ch == "." else ch for ch in s)
+    return State(tuple(EMPTY if ch == "." else ch for ch in s), last_move)
 
 
-class WinnerTests(unittest.TestCase):
+def play(*numbers):
+    """Return the state after Moves at the keypad ``numbers``, X first."""
+    state = game.initial_state()
+    for number in numbers:
+        move, error = game.parse_move(str(number))
+        state = game.apply_move(state, move)
+    return state
+
+
+def computer_move(state):
+    """The Cell number the computer (full Difficulty) plays in ``state``."""
+    return game.move_text(Computer().choose_move(game, state, None))
+
+
+class ResultTests(unittest.TestCase):
     def test_rows(self):
-        self.assertEqual(t.winner(board_from("XXXOO....")), X)
-        self.assertEqual(t.winner(board_from("XX.OOOX..")), O)
-        self.assertEqual(t.winner(board_from("OO....XXX")), X)
+        self.assertEqual(game.result(board_from("XXXOO....")), X)
+        self.assertEqual(game.result(board_from("XX.OOOX..")), O)
+        self.assertEqual(game.result(board_from("OO....XXX")), X)
 
     def test_columns(self):
-        self.assertEqual(t.winner(board_from("XO.XO.X..")), X)
-        self.assertEqual(t.winner(board_from("XO.XO..O.")), O)
-        self.assertEqual(t.winner(board_from("O.XO.X..X")), X)
+        self.assertEqual(game.result(board_from("XO.XO.X..")), X)
+        self.assertEqual(game.result(board_from("XO.XO..O.")), O)
+        self.assertEqual(game.result(board_from("O.XO.X..X")), X)
 
     def test_diagonals(self):
-        self.assertEqual(t.winner(board_from("XO.OX...X")), X)
-        self.assertEqual(t.winner(board_from("XXO.O.O.X")), O)
+        self.assertEqual(game.result(board_from("XO.OX...X")), X)
+        self.assertEqual(game.result(board_from("XXO.O.O.X")), O)
 
     def test_draw(self):
-        self.assertEqual(t.winner(board_from("XOXXOOOXX")), DRAW)
+        self.assertEqual(game.result(board_from("XOXXOOOXX")), DRAW)
 
     def test_ongoing(self):
-        self.assertIsNone(t.winner(t.new_board()))
-        self.assertIsNone(t.winner(board_from("XO..X...O")))
+        self.assertIsNone(game.result(game.initial_state()))
+        self.assertIsNone(game.result(board_from("XO..X...O")))
+
+    def test_no_moves_once_won(self):
+        self.assertEqual(game.legal_moves(board_from("XXXOO....")), [])
 
 
-class BestMoveTests(unittest.TestCase):
+class SideToMoveTests(unittest.TestCase):
+    def test_x_moves_first_and_sides_alternate(self):
+        self.assertEqual(game.sides, (X, O))
+        self.assertEqual(game.to_move(game.initial_state()), X)
+        self.assertEqual(game.to_move(play(5)), O)
+        self.assertEqual(game.to_move(play(5, 7)), X)
+
+    def test_a_move_places_the_mark_of_the_side_to_move(self):
+        self.assertEqual(play(5, 7), board_from("O...X....", last_move=0))
+
+
+class ComputerTests(unittest.TestCase):
     def test_takes_immediate_win(self):
-        # X to move, can win at index 2 (top row).
-        board = board_from("XX.OO....")
-        self.assertEqual(t.best_move(board), 2)
+        self.assertEqual(computer_move(board_from("XX.OO....")), "9")
 
     def test_prefers_win_over_block(self):
-        # O to move: O can win at 5 rather than just blocking X at 2.
-        board = board_from("XX.OO.X..")
-        self.assertEqual(t.best_move(board), 5)
+        self.assertEqual(computer_move(board_from("XX.OO.X..")), "6")
 
     def test_blocks_immediate_loss(self):
-        # O to move, X threatens top row at index 2.
-        board = board_from("XX..O....")
-        self.assertEqual(t.best_move(board), 2)
+        self.assertEqual(computer_move(board_from("XX..O....")), "9")
 
     def test_blocks_column_threat(self):
-        # X to move, O threatens left column at index 6.
-        board = board_from("O..OX...X")
-        self.assertEqual(t.best_move(board), 6)
+        self.assertEqual(computer_move(board_from("O..OX...X")), "1")
 
-    def test_game_over_returns_none(self):
-        self.assertIsNone(t.best_move(board_from("XXXOO....")))
+    def test_full_difficulty_is_unlimited_and_unbeatable(self):
+        self.assertIsNone(game.default_depth)
+        self.assertTrue(game.unbeatable(None))
 
 
 class CellNumberTests(unittest.TestCase):
     # Cells are numbered like a numeric keypad: 7 8 9 / 4 5 6 / 1 2 3.
-    KEYPAD = {7: 0, 8: 1, 9: 2, 4: 3, 5: 4, 6: 5, 1: 6, 2: 7, 3: 8}
+    KEYPAD = {7: "X........", 8: ".X.......", 9: "..X......",
+              4: "...X.....", 5: "....X....", 6: ".....X...",
+              1: "......X..", 2: ".......X.", 3: "........X"}
 
     def test_keypad_order(self):
-        for number, index in self.KEYPAD.items():
-            self.assertEqual(t.cell_number(index), number, index)
-            self.assertEqual(t.cell_index(number), index, number)
+        for number, board in self.KEYPAD.items():
+            self.assertEqual(play(number).cells, board_from(board).cells)
+            move, _ = game.parse_move(str(number))
+            self.assertEqual(game.move_text(move), str(number))
 
-    def test_out_of_range_round_trips(self):
+    def test_parsing_ignores_whitespace(self):
+        self.assertEqual(game.parse_move(" 5 \n"), game.parse_move("5"))
+
+    def test_out_of_range_is_left_to_the_game_and_reported_as_typed(self):
         for number in (-1, 0, 10):
-            index = t.cell_index(number)
-            self.assertIsNotNone(t.move_problem(t.new_board(), index), number)
-            self.assertEqual(t.cell_number(index), number)
+            move, error = game.parse_move(str(number))
+            self.assertIsNone(error)
+            reason = game.move_problem(game.initial_state(), move)
+            self.assertEqual(reason, OUT_OF_RANGE)
+            self.assertEqual(game.rejection_message(move, reason),
+                             "%d is out of range; choose a cell from 1 to 9."
+                             % number)
 
-
-class ParseMoveTests(unittest.TestCase):
-    def test_number(self):
-        self.assertEqual(t.parse_move(" 5 \n"), (4, None))
-
-    def test_keypad_numbers(self):
-        self.assertEqual(t.parse_move("7"), (0, None))
-        self.assertEqual(t.parse_move("3"), (8, None))
-
-    def test_range_is_left_to_the_game(self):
-        self.assertEqual(t.parse_move("10"), (9, None))
-        self.assertEqual(t.parse_move("-1"), (-2, None))
+    def test_taken_cell_reported_by_its_number(self):
+        move, _ = game.parse_move("7")
+        state = play(7)
+        self.assertEqual(game.move_problem(state, move), TAKEN)
+        self.assertEqual(game.rejection_message(move, TAKEN),
+                         "Cell 7 is already taken; pick an empty cell.")
 
     def test_not_a_number(self):
         for text in ("", "abc", "1.5"):
-            index, error = t.parse_move(text)
-            self.assertIsNone(index, text)
-            self.assertTrue(error, text)
+            move, error = game.parse_move(text)
+            self.assertIsNone(move, text)
+            self.assertIn("1 to 9", error)
 
 
-class ScriptedIO:
-    """PlayerIO adapter for tests: plays the given moves (indices) and
-    records every Game event. Raises EOFError when it runs out of moves,
-    like a terminal reaching end of input."""
-
-    def __init__(self, first, moves):
-        self.first = first
-        self.moves = list(moves)
-        self.events = []
-
-    def wants_first(self):
-        return self.first
-
-    def choose_move(self, board):
-        if not self.moves:
-            raise EOFError
-        return self.moves.pop(0)
-
-    def show(self, event):
-        self.events.append(event)
+def cells(numbers):
+    return [str(n) for n in numbers]
 
 
 class GameTests(unittest.TestCase):
     def test_human_first_draw(self):
-        io = ScriptedIO(True, [4, 1, 3, 8, 6])
-        self.assertEqual(t.play_game(io), DRAW)
-        self.assertEqual(io.events, [
-            Started(X, O),
-            Moved(X, 4, board_from("....X...."), None),
-            Moved(O, 0, board_from("O...X...."), 0),
-            Moved(X, 1, board_from("OX..X...."), 0),
-            Moved(O, 7, board_from("OX..X..O."), 7),
-            Moved(X, 3, board_from("OX.XX..O."), 7),
-            Moved(O, 5, board_from("OX.XXO.O."), 5),
-            Moved(X, 8, board_from("OX.XXO.OX"), 5),
-            Moved(O, 2, board_from("OXOXXO.OX"), 2),
-            Moved(X, 6, board_from("OXOXXOXOX"), 2),
-            GameOver(DRAW, board_from("OXOXXOXOX"), None),
+        scripted = ScriptedIO(cells([5, 8, 4, 3, 1]))
+        players = (Human(), Computer())
+        self.assertEqual(play_game(game, players, scripted), DRAW)
+        self.assertEqual(scripted.events, [
+            Started(players, game.initial_state()),
+            Moved(X, 4, board_from("....X....", 4)),
+            Moved(O, 0, board_from("O...X....", 0)),
+            Moved(X, 1, board_from("OX..X....", 1)),
+            Moved(O, 7, board_from("OX..X..O.", 7)),
+            Moved(X, 3, board_from("OX.XX..O.", 3)),
+            Moved(O, 5, board_from("OX.XXO.O.", 5)),
+            Moved(X, 8, board_from("OX.XXO.OX", 8)),
+            Moved(O, 2, board_from("OXOXXO.OX", 2)),
+            Moved(X, 6, board_from("OXOXXOXOX", 6)),
+            GameOver(DRAW, board_from("OXOXXOXOX", 6)),
         ])
+        self.assertEqual(scripted.prompts, [X] * 5)
 
     def test_computer_first_win(self):
-        io = ScriptedIO(False, [1, 2])
-        self.assertEqual(t.play_game(io), X)
-        self.assertEqual(io.events, [
-            Started(O, X),
-            Moved(X, 0, board_from("X........"), 0),
-            Moved(O, 1, board_from("XO......."), 0),
-            Moved(X, 3, board_from("XO.X....."), 3),
-            Moved(O, 2, board_from("XOOX....."), 3),
-            Moved(X, 6, board_from("XOOX..X.."), 6),
-            GameOver(X, board_from("XOOX..X.."), (0, 3, 6)),
+        scripted = ScriptedIO(cells([8, 9]))
+        players = (Computer(), Human())
+        self.assertEqual(play_game(game, players, scripted), X)
+        self.assertEqual(scripted.events, [
+            Started(players, game.initial_state()),
+            Moved(X, 0, board_from("X........", 0)),
+            Moved(O, 1, board_from("XO.......", 1)),
+            Moved(X, 3, board_from("XO.X.....", 3)),
+            Moved(O, 2, board_from("XOOX.....", 2)),
+            Moved(X, 6, board_from("XOOX..X..", 6)),
+            GameOver(X, board_from("XOOX..X..", 6)),
         ])
 
-    def test_illegal_moves_rejected_and_asked_again(self):
-        io = ScriptedIO(True, [9, -1, 4, 4, 0, 1])
+    def test_rejected_moves_and_bad_text_are_asked_again(self):
+        scripted = ScriptedIO(["abc", "10", "0", "5", "5", "7", "8"])
         with self.assertRaises(EOFError):
-            t.play_game(io)
-        self.assertEqual(io.events[1:7], [
+            play_game(game, (Human(), Computer()), scripted)
+        self.assertEqual(len(scripted.parse_errors), 1)
+        self.assertEqual(scripted.events[1:7], [
             MoveRejected(9, OUT_OF_RANGE),
             MoveRejected(-1, OUT_OF_RANGE),
-            Moved(X, 4, board_from("....X...."), None),
-            Moved(O, 0, board_from("O...X...."), 0),
+            Moved(X, 4, board_from("....X....", 4)),
+            Moved(O, 0, board_from("O...X....", 0)),
             MoveRejected(4, TAKEN),
             MoveRejected(0, TAKEN),
         ])
-        self.assertEqual(io.events[7], Moved(X, 1, board_from("OX..X...."), 0))
+        self.assertEqual(scripted.events[7],
+                         Moved(X, 1, board_from("OX..X....", 1)))
 
     def test_quitting_propagates(self):
-        io = ScriptedIO(True, [])
+        scripted = ScriptedIO()
         with self.assertRaises(EOFError):
-            t.play_game(io)
-        self.assertEqual(io.events, [Started(X, O)])
+            play_game(game, (Human(), Computer()), scripted)
+        self.assertEqual(scripted.of_type(Moved), [])
+
+    def test_starts_from_a_given_state(self):
+        scripted = ScriptedIO()
+        start = board_from("XX.OO....")
+        self.assertEqual(play_game(game, (Computer(), Human()), scripted,
+                                   start=start), X)
+        self.assertEqual(scripted.events[0].state, start)
 
 
 class NeverLosesTests(unittest.TestCase):
-    """Exhaustively try every human move sequence against the AI."""
+    """Exhaustively try every human Move sequence against the computer."""
 
-    def _explore(self, board, ai, counter):
-        result = t.winner(board)
+    def _explore(self, state, computer, counter):
+        result = game.result(state)
         if result is not None:
             self.assertNotEqual(
-                result, t.other(ai),
-                "AI (%s) lost on board %r" % (ai, board))
+                result, O if computer == X else X,
+                "the computer (%s) lost on %r" % (computer, state))
             counter[result] = counter.get(result, 0) + 1
             return
-        if t.to_move(board) == ai:
-            move = t.best_move(board)
-            self.assertIn(move, t.available_moves(board))
-            self._explore(t.apply_move(board, move), ai, counter)
+        if game.to_move(state) == computer:
+            move = Computer().choose_move(game, state, None)
+            self.assertIn(move, game.legal_moves(state))
+            self._explore(game.apply_move(state, move), computer, counter)
         else:
-            for move in t.available_moves(board):
-                self._explore(t.apply_move(board, move), ai, counter)
+            for move in game.legal_moves(state):
+                self._explore(game.apply_move(state, move), computer, counter)
 
-    def test_ai_first_never_loses(self):
+    def test_computer_first_never_loses(self):
         counter = {}
-        self._explore(t.new_board(), X, counter)
+        self._explore(game.initial_state(), X, counter)
         self.assertNotIn(O, counter)
         self.assertGreater(sum(counter.values()), 0)
 
-    def test_ai_second_never_loses(self):
+    def test_computer_second_never_loses(self):
         counter = {}
-        self._explore(t.new_board(), O, counter)
+        self._explore(game.initial_state(), O, counter)
         self.assertNotIn(X, counter)
         self.assertGreater(sum(counter.values()), 0)
 
 
-class ToMoveTests(unittest.TestCase):
-    def test_x_moves_first(self):
-        self.assertEqual(t.to_move(t.new_board()), X)
-
-    def test_players_alternate(self):
-        self.assertEqual(t.to_move(board_from("....X....")), O)
-        self.assertEqual(t.to_move(board_from("O...X....")), X)
-
-    def test_apply_move_places_player_to_move(self):
-        board = t.apply_move(t.new_board(), 4)
-        self.assertEqual(board, board_from("....X...."))
-        self.assertEqual(t.apply_move(board, 0), board_from("O...X...."))
-
-
-class WinningLineTests(unittest.TestCase):
-    def test_lines(self):
-        self.assertEqual(t.winning_line(board_from("XXXOO....")), (0, 1, 2))
-        self.assertEqual(t.winning_line(board_from("XXO.O.O.X")), (2, 4, 6))
-
-    def test_no_line(self):
-        self.assertIsNone(t.winning_line(t.new_board()))
-        self.assertIsNone(t.winning_line(board_from("XOXXOOOXX")))
+def render(state):
+    """Render the board; return its plain text and the styled glyphs as
+    ``(line, glyph, Style)`` for every letter or digit."""
+    console = Console(record=True, width=60, color_system="truecolor",
+                      file=io.StringIO())
+    glyphs = []
+    line = 0
+    for segment in console.render(game.render(state)):
+        if segment.text == "\n":
+            line += 1
+            continue
+        for ch in segment.text:
+            if ch.isalnum():
+                glyphs.append((line, ch, segment.style or Style()))
+    console.print(game.render(state))
+    return console.export_text(styles=False), glyphs
 
 
 class RenderingTests(unittest.TestCase):
-    def _render(self, renderable):
-        console = Console(record=True, width=60, color_system=None,
-                          file=io.StringIO())
-        console.print(renderable)
-        return console.export_text()
-
-    def _style(self, text):
-        """Combined style of a single-glyph Text (base style + spans)."""
-        style = Style.parse(str(text.style)) if text.style else Style()
-        for span in text.spans:
-            style += Style.parse(str(span.style))
-        return style
-
     def test_board_has_full_grid_lines(self):
-        out = self._render(t.board_table(board_from("O.X.X....")))
+        out, _ = render(board_from("O.X.X...."))
         for ch in "┏┳┓┣╋┫┗┻┛┃━":
             self.assertIn(ch, out, ch)
         lines = out.splitlines()
@@ -254,54 +257,49 @@ class RenderingTests(unittest.TestCase):
         self.assertEqual(sum("╋" in line for line in lines), 2)
         self.assertEqual(lines[0].count("┳"), 2)
 
-    def test_board_shows_pieces_and_guide_numbers(self):
-        out = self._render(t.board_table(board_from("O.X.X....")))
-        # Empty indices 1, 3, 5-8 are keypad numbers 8, 4, 6, 1, 2, 3.
-        for ch in "OX123468":
-            self.assertIn(ch, out, ch)
-        self.assertNotIn("7", out)
-        self.assertNotIn("9", out)
-        self.assertNotIn("5", out)
-        lines = [line for line in out.splitlines() if any(c.isdigit()
-                                                          for c in line)]
-        self.assertEqual([[c for c in line if c.isdigit()] for line in lines],
-                         [["8"], ["4", "6"], ["1", "2", "3"]])
+    def test_board_shows_marks_and_guide_numbers(self):
+        _, glyphs = render(board_from("O.X.X...."))
+        rows = {}
+        for line, ch, _ in glyphs:
+            rows.setdefault(line, []).append(ch)
+        # Empty Cells show their keypad numbers.
+        self.assertEqual(list(rows.values()),
+                         [["O", "8", "X"], ["4", "X", "6"], ["1", "2", "3"]])
 
-    def test_cell_styles(self):
-        board = board_from("O.X.X....")
-        self.assertEqual(self._style(t.cell_text(board, 0)),
-                         Style.parse("bold magenta"))
-        self.assertEqual(self._style(t.cell_text(board, 2)),
-                         Style.parse("bold cyan"))
-        guide = t.cell_text(board, 1)
-        self.assertEqual(guide.plain, "8")
-        self.assertTrue(self._style(guide).dim)
+    def test_mark_and_guide_styles(self):
+        _, glyphs = render(board_from("O.X.X...."))
+        styles = {ch: style for _, ch, style in glyphs}
+        self.assertEqual(styles["O"].color.name, "magenta")
+        self.assertEqual(styles["X"].color.name, "cyan")
+        self.assertTrue(styles["O"].bold and styles["X"].bold)
+        self.assertTrue(styles["8"].dim)
 
-    def test_last_move_highlighted(self):
-        board = board_from("O.X.X....")
-        self.assertTrue(self._style(t.cell_text(board, 0, last_move=0)).reverse)
-        self.assertFalse(self._style(t.cell_text(board, 2, last_move=0)).reverse)
+    def test_most_recent_move_highlighted_whichever_side_made_it(self):
+        for state, mark in ((play(5, 7), "O"), (play(5, 7, 9), "X")):
+            _, glyphs = render(state)
+            self.assertEqual([ch for _, ch, style in glyphs if style.reverse],
+                             [mark])
+        _, glyphs = render(game.initial_state())
+        self.assertFalse(any(style.reverse for _, _, style in glyphs))
 
-    def test_winning_cells_highlighted(self):
-        board = board_from("XXXOO....")
-        line = t.winning_line(board)
-        for i in line:
-            style = self._style(t.cell_text(board, i, win_line=line))
-            self.assertEqual(style.bgcolor.name, "green", i)
-            self.assertTrue(style.bold)
-        self.assertIsNone(self._style(t.cell_text(board, 3, win_line=line))
-                          .bgcolor)
-
-    def test_player_text_colors(self):
-        self.assertEqual(t.player_text(X).style, "bold cyan")
-        self.assertEqual(t.player_text(O).style, "bold magenta")
+    def test_winning_line_on_green(self):
+        _, glyphs = render(play(7, 4, 8, 5, 9))
+        green = [ch for _, ch, style in glyphs
+                 if style.bgcolor is not None
+                 and style.bgcolor.name == "green"]
+        self.assertEqual(green, ["X"] * 3)
+        self.assertTrue(all(style.bold for _, ch, style in glyphs
+                            if ch == "X"))
+        self.assertFalse(any(style.reverse for _, _, style in glyphs))
 
 
 class TerminalIOTests(unittest.TestCase):
-    def _shown(self, event):
+    def _shown(self, *events):
         out = io.StringIO()
-        terminal = t.TerminalIO(Console(file=out, color_system=None))
-        terminal.show(event)
+        terminal = framework.TerminalIO(game, Console(file=out,
+                                                      color_system=None))
+        for event in events:
+            terminal.show(event)
         return out.getvalue()
 
     def test_rejected_move_uses_keypad_number(self):
@@ -310,31 +308,16 @@ class TerminalIOTests(unittest.TestCase):
         self.assertIn("10 is out of range",
                       self._shown(MoveRejected(9, OUT_OF_RANGE)))
 
-
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-
-# Two games: the human goes first (with every kind of bad input) and draws,
-# then goes second and loses. golden_transcript.txt was first recorded before
-# the Game / Terminal I/O split, and re-recorded when cells were renumbered in
-# keypad order.
-GOLDEN_INPUT = "\n".join(["y", "abc", "10", "5", "5", "8", "4", "3", "1",
-                          "maybe", "y", "n", "8", "9", "n"]) + "\n"
-
-
-def run_program(command, *args, input=""):
-    """Run ``command`` (a list) from the project root with plain output."""
-    env = dict(os.environ, NO_COLOR="1", COLUMNS="80",
-               PYTHONIOENCODING="utf-8")
-    env.pop("FORCE_COLOR", None)
-    return subprocess.run([sys.executable] + command + list(args),
-                          input=input, capture_output=True, text=True,
-                          encoding="utf-8", env=env, cwd=ROOT, timeout=30)
-
-
-def golden_transcript():
-    with open(os.path.join(ROOT, "golden_transcript.txt"),
-              encoding="utf-8") as f:
-        return f.read()
+    def test_a_human_win_is_impossible_only_at_full_difficulty(self):
+        won = board_from("XXXOO....", 2)
+        full = self._shown(Started((Human(), Computer()), game.initial_state()),
+                           GameOver(X, won))
+        self.assertIn("You win! (This should not happen...)", full)
+        weaker = self._shown(Started((Human(), Computer(2)),
+                                     game.initial_state()),
+                             GameOver(X, won))
+        self.assertIn("You win!", weaker)
+        self.assertNotIn("should not happen", weaker)
 
 
 class CommandLineTests(unittest.TestCase):

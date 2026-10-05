@@ -1,39 +1,36 @@
-"""Tic-tac-toe, the first Game type: a human plays against an unbeatable
-minimax computer.
+"""Tic-tac-toe, the first Game type: X and O take turns placing their mark
+in an empty Cell of a 3x3 grid; three in a row wins.
 
-Board representation: a tuple of 9 cells, each ``"X"``, ``"O"`` or ``" "``,
-indexed 0..8 left to right and top to bottom in a 3x3 grid. The cell numbers
-1..9 shown to the user follow a numeric keypad instead (7 8 9 on the top row,
-1 2 3 on the bottom); ``cell_number`` and ``cell_index`` convert between them.
+State: an immutable ``State`` holding the 9 Cells (each ``"X"``, ``"O"`` or
+``" "``, indexed 0..8 left to right and top to bottom) and the index of the
+most recent Move (None at the start). A Move is a Cell index 0-8. The Cell
+numbers 1..9 shown to the human follow a numeric keypad instead (7 8 9 on the
+top row, 1 2 3 on the bottom); ``cell_number`` and ``cell_index`` convert
+between them.
 
-The terminal UI uses the ``rich`` library: the board is drawn as a heavy-lined
-table with X and O in their own colors, empty cells show a dim guide number
-(1-9), the computer's last move is highlighted, and a winning line gets a
-green background.
-
-The board rules and the rich rendering helpers are pure functions. A Game
-(``play_game``) talks to the human only through a Player I/O object, so it can
-be played in tests by a scripted adapter; ``TerminalIO`` is the adapter that
-drives the real terminal.
+The board is drawn as a heavy-lined rich table with X and O in their own
+colors; empty Cells show a dim guide number (1-9), the most recent Move is
+highlighted, and a Winning line gets a green background.
 """
 
 import argparse
 from dataclasses import dataclass
 from functools import lru_cache
-from typing import Optional, Protocol
+from typing import Optional
 
 from rich import box
-from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
+from games import framework
+from games.framework import DRAW
+
 EMPTY = " "
 X = "X"
 O = "O"
-DRAW = "draw"
 
-# Why a move is rejected (see move_problem).
+# Why a Move is rejected (see move_problem).
 OUT_OF_RANGE = "out of range"
 TAKEN = "taken"
 
@@ -44,93 +41,81 @@ WIN_LINES = (
 )
 
 
+@dataclass(frozen=True)
+class State:
+    """A tic-tac-toe position: the 9 ``cells`` and the index of the most
+    recent Move, ``last_move``."""
+    cells: tuple = (EMPTY,) * 9
+    last_move: Optional[int] = None
+
+
 # --------------------------------------------------------------------------
-# Pure game logic
+# Rules (pure functions)
 # --------------------------------------------------------------------------
 
-def new_board():
-    """Return an empty board."""
-    return (EMPTY,) * 9
+def _to_move(cells):
+    return X if cells.count(X) == cells.count(O) else O
 
 
-def other(player):
-    """Return the opponent of ``player``."""
-    return O if player == X else X
-
-
-def available_moves(board):
-    """Return the list of empty cell indices (0-8)."""
-    return [i for i, cell in enumerate(board) if cell == EMPTY]
-
-
-def move_problem(board, index):
-    """Return why a move at ``index`` is illegal (``OUT_OF_RANGE`` or
-    ``TAKEN``), or None if the move is legal."""
-    if not 0 <= index < 9:
-        return OUT_OF_RANGE
-    if board[index] != EMPTY:
-        return TAKEN
-    return None
-
-
-def to_move(board):
-    """Return the player who moves next on ``board`` (X always moves first).
-
-    Like ``apply_move`` and ``best_move``, this assumes ``board`` can occur
-    in a real game, i.e. it was reached from ``new_board()`` by
-    ``apply_move``.
-    """
-    return X if board.count(X) == board.count(O) else O
-
-
-def apply_move(board, index):
-    """Return a new board with the player to move placed at ``index``.
-
-    Raises ValueError if the index is out of range or the cell is occupied.
-    """
-    problem = move_problem(board, index)
-    if problem == OUT_OF_RANGE:
-        raise ValueError("index out of range: %r" % (index,))
-    if problem == TAKEN:
-        raise ValueError("cell index %d is already occupied" % index)
-    cells = list(board)
-    cells[index] = to_move(board)
-    return tuple(cells)
-
-
-def _find_line(board):
-    """Return the first ``(a, b, c)`` line held by one player, or None."""
+def _find_line(cells):
+    """Return the first ``(a, b, c)`` line held by one Side, or None."""
     for line in WIN_LINES:
         a, b, c = line
-        if board[a] != EMPTY and board[a] == board[b] == board[c]:
+        if cells[a] != EMPTY and cells[a] == cells[b] == cells[c]:
             return line
     return None
 
 
-def winner(board):
-    """Return ``"X"`` or ``"O"`` for a win, ``"draw"`` for a full board with
-    no winner, or ``None`` if the game is still in progress."""
-    line = _find_line(board)
+def _result(cells):
+    line = _find_line(cells)
     if line is not None:
-        return board[line[0]]
-    if EMPTY not in board:
+        return cells[line[0]]
+    if EMPTY not in cells:
         return DRAW
     return None
 
 
-def winning_line(board):
-    """Return the ``(a, b, c)`` indices of the winning line, or None."""
-    return _find_line(board)
+def _empty_cells(cells):
+    return [i for i, cell in enumerate(cells) if cell == EMPTY]
 
+
+def _place(cells, index):
+    placed = list(cells)
+    placed[index] = _to_move(cells)
+    return tuple(placed)
+
+
+def move_problem(state, index):
+    """Return why a Move at ``index`` is illegal (``OUT_OF_RANGE`` or
+    ``TAKEN``), or None if it is legal."""
+    if not 0 <= index < 9:
+        return OUT_OF_RANGE
+    if state.cells[index] != EMPTY:
+        return TAKEN
+    return None
+
+
+def apply_move(state, index):
+    """Return the state after the Side to move places its mark at
+    ``index``. Raises ValueError if the Move is not legal."""
+    problem = move_problem(state, index)
+    if problem is not None:
+        raise ValueError("cell index %r is %s" % (index, problem))
+    return State(_place(state.cells, index), index)
+
+
+# --------------------------------------------------------------------------
+# Computer opponent: full minimax (replaced by the shared search in 04)
+# --------------------------------------------------------------------------
 
 @lru_cache(maxsize=None)
-def _minimax(board, me, depth, alpha, beta):
-    """Score ``board`` from ``me``'s perspective.
+def _minimax(cells, me, depth, alpha, beta):
+    """Score ``cells`` from ``me``'s perspective.
 
     Depth-aware: a win scores ``10 - depth`` (faster wins are better) and a
     loss scores ``depth - 10`` (slower losses are better). Draw is 0.
     """
-    result = winner(board)
+    result = _result(cells)
     if result == me:
         return 10 - depth
     if result == DRAW:
@@ -138,10 +123,10 @@ def _minimax(board, me, depth, alpha, beta):
     if result is not None:
         return depth - 10
 
-    maximizing = to_move(board) == me
+    maximizing = _to_move(cells) == me
     best = -100 if maximizing else 100
-    for move in available_moves(board):
-        score = _minimax(apply_move(board, move), me, depth + 1, alpha, beta)
+    for move in _empty_cells(cells):
+        score = _minimax(_place(cells, move), me, depth + 1, alpha, beta)
         if maximizing:
             best = max(best, score)
             alpha = max(alpha, best)
@@ -153,24 +138,19 @@ def _minimax(board, me, depth, alpha, beta):
     return best
 
 
-def best_move(board):
-    """Return the best cell index (0-8) for the player to move on ``board``.
-
-    Uses full minimax with alpha-beta pruning and depth-aware scoring, so the
-    move chosen never loses, wins as fast as possible, and when losing is
-    unavoidable (impossible from a fair start) delays it as long as possible.
-    Ties are broken by lowest index, making the choice deterministic.
-    Returns None if the game is already over.
-    """
-    board = tuple(board)
-    if winner(board) is not None:
+def best_move(state):
+    """Return the best Cell index for the Side to move, or None if the Game
+    is over. Full minimax, so the Move never loses; ties go to the lowest
+    index."""
+    cells = state.cells
+    if _result(cells) is not None:
         return None
-    player = to_move(board)
+    player = _to_move(cells)
     best_score = -100
     choice = None
-    for move in available_moves(board):
+    for move in _empty_cells(cells):
         # Full window per root child so scores are exact and comparable.
-        score = _minimax(apply_move(board, move), player, 1, -100, 100)
+        score = _minimax(_place(cells, move), player, 1, -100, 100)
         if score > best_score:
             best_score = score
             choice = move
@@ -188,11 +168,9 @@ WIN_STYLE = "bold white on green"
 
 
 def cell_number(index):
-    """Return the keypad-order number (1-9) the user sees for cell ``index``.
-
-    Indices outside 0-8 map to numbers outside 1-9 (``index + 1``), so a
-    rejected move can still be reported with the number the user typed.
-    """
+    """Return the keypad-order number (1-9) the human sees for Cell
+    ``index``. Indices outside 0-8 map to ``index + 1``, so a rejected Move
+    can still be reported with the number the human typed."""
     if not 0 <= index < 9:
         return index + 1
     row, col = divmod(index, 3)
@@ -200,34 +178,27 @@ def cell_number(index):
 
 
 def cell_index(number):
-    """Return the board index for the keypad-order cell ``number``; the
-    inverse of ``cell_number`` (flipping the rows is its own inverse)."""
+    """Return the Cell index for the keypad-order ``number``; the inverse
+    of ``cell_number`` (flipping the rows is its own inverse)."""
     return cell_number(number - 1) - 1
 
 
-def player_text(player):
-    """Return ``player`` ("X" or "O") as a styled rich Text."""
-    return Text(player, style=PLAYER_STYLES[player])
-
-
-def cell_text(board, index, last_move=None, win_line=None):
-    """Return the styled Text for one cell.
-
-    Pieces use their player color; empty cells show a dim guide number. The
-    computer's last move is reversed and winning cells get a green background.
-    """
-    if board[index] == EMPTY:
+def _cell_text(state, index, win_line):
+    cell = state.cells[index]
+    if cell == EMPTY:
         return Text(str(cell_number(index)), style=GUIDE_STYLE)
-    text = player_text(board[index])
+    text = Text(cell, style=PLAYER_STYLES[cell])
     if win_line is not None and index in win_line:
         text.stylize(WIN_STYLE)
-    elif index == last_move:
+    elif index == state.last_move:
         text.stylize(LAST_MOVE_STYLE)
     return text
 
 
-def board_table(board, last_move=None, win_line=None):
-    """Return a rich Table drawing the board as a 3x3 grid with full lines."""
+def board_table(state):
+    """Return a rich Table drawing the board as a 3x3 grid with full lines.
+    The most recent Move is highlighted and the Winning line, if any, is on
+    a green background."""
     table = Table(
         box=box.HEAVY,
         show_header=False,
@@ -237,123 +208,16 @@ def board_table(board, last_move=None, win_line=None):
     )
     for _ in range(3):
         table.add_column(justify="center", vertical="middle", min_width=1)
+    win_line = _find_line(state.cells)
     for r in range(3):
-        table.add_row(*(cell_text(board, r * 3 + c, last_move, win_line)
+        table.add_row(*(_cell_text(state, r * 3 + c, win_line)
                         for c in range(3)))
     return table
 
 
 # --------------------------------------------------------------------------
-# Game
+# The Game type
 # --------------------------------------------------------------------------
-
-@dataclass(frozen=True)
-class Started:
-    """The Game has started; ``human`` and ``computer`` are X and O."""
-    human: str
-    computer: str
-
-
-@dataclass(frozen=True)
-class Moved:
-    """``player`` moved at ``index``, giving ``board``.
-
-    ``last_computer_move`` is the index of the computer's most recent move
-    (possibly this one), or None if the computer has not moved yet.
-    """
-    player: str
-    index: int
-    board: tuple
-    last_computer_move: Optional[int]
-
-
-@dataclass(frozen=True)
-class MoveRejected:
-    """The human's move at ``index`` was refused for ``reason``
-    (``OUT_OF_RANGE`` or ``TAKEN``); the human will be asked again."""
-    index: int
-    reason: str
-
-
-@dataclass(frozen=True)
-class GameOver:
-    """The Game ended with ``result`` (X, O or DRAW) on ``board``.
-    ``winning_line`` is None for a draw."""
-    result: str
-    board: tuple
-    winning_line: Optional[tuple]
-
-
-class PlayerIO(Protocol):
-    """Everything a Game needs from the human's side.
-
-    Methods may raise EOFError or KeyboardInterrupt to quit; the Game lets
-    them propagate.
-    """
-
-    def wants_first(self) -> bool:
-        """Return True if the human moves first (and so plays X)."""
-
-    def choose_move(self, board) -> int:
-        """Return the index the human wants to move at. It need not be
-        legal: the Game rejects it with a MoveRejected event and asks
-        again."""
-
-    def show(self, event) -> None:
-        """Tell the human about a Game event."""
-
-
-def play_game(io):
-    """Play one full Game against the human behind ``io`` (a PlayerIO).
-
-    Returns the result (``"X"``, ``"O"`` or ``"draw"``).
-    """
-    human = X if io.wants_first() else O
-    computer = other(human)
-    io.show(Started(human, computer))
-
-    board = new_board()
-    last_computer_move = None
-    while winner(board) is None:
-        player = to_move(board)
-        if player == human:
-            move = _human_move(io, board)
-        else:
-            move = best_move(board)
-            last_computer_move = move
-        board = apply_move(board, move)
-        io.show(Moved(player, move, board, last_computer_move))
-
-    result = winner(board)
-    io.show(GameOver(result, board, winning_line(board)))
-    return result
-
-
-def _human_move(io, board):
-    """Ask the human for a move until a legal one is given."""
-    while True:
-        move = io.choose_move(board)
-        problem = move_problem(board, move)
-        if problem is None:
-            return move
-        io.show(MoveRejected(move, problem))
-
-
-# --------------------------------------------------------------------------
-# Terminal I/O
-# --------------------------------------------------------------------------
-
-def parse_move(text):
-    """Turn the human's input into a cell index. Return ``(index, None)`` on
-    success or ``(None, error_message)`` if it is not a number. The index is
-    not checked against the board."""
-    text = text.strip()
-    try:
-        number = int(text)
-    except ValueError:
-        return None, "Please enter a number from 1 to 9 (got %r)." % text
-    return cell_index(number), None
-
 
 REJECTION_MESSAGES = {
     OUT_OF_RANGE: "%d is out of range; choose a cell from 1 to 9.",
@@ -361,96 +225,83 @@ REJECTION_MESSAGES = {
 }
 
 
-class TerminalIO:
-    """PlayerIO adapter for a human at a terminal, drawn with rich.
+class TicTacToe:
+    """Tic-tac-toe as a Game type (see ``games.framework.GameType``)."""
 
-    The board is shown before every turn: it is drawn lazily, just before
-    the next prompt or computer move, so the final board is drawn only once,
-    with its winning line.
-    """
+    name = "tictactoe"
+    title = "Tic-tac-toe"
+    sides = (X, O)
+    default_depth = None  # unlimited: the computer is unbeatable
 
-    def __init__(self, console):
-        self.console = console
-        self._human = None
-        self._computer = None
-        self._last_computer_move = None
-        self._pending_board = None
+    def side_style(self, side):
+        return PLAYER_STYLES[side]
 
-    def say(self, *parts, style=None):
-        """Print a line made of strings (rich markup) and Text objects."""
-        line = Text()
-        for part in parts:
-            line.append(Text.from_markup(part) if isinstance(part, str)
-                        else part)
-        self.console.print(line, style=style)
+    def initial_state(self):
+        return State()
 
-    def show_board(self, board, last_move=None, win_line=None):
-        self.console.print(board_table(board, last_move, win_line))
+    def to_move(self, state):
+        return _to_move(state.cells)
 
-    def ask(self, prompt):
-        """Prompt with rich markup. Raises EOFError on EOF."""
-        return self.console.input("[bold yellow]%s[/] " % prompt)
+    def legal_moves(self, state):
+        if _result(state.cells) is not None:
+            return []
+        return _empty_cells(state.cells)
 
-    def ask_yes_no(self, prompt):
-        """Prompt until the user answers y/yes or n/no. Raises EOFError on
-        EOF."""
-        while True:
-            answer = self.ask(prompt).strip().lower()
-            if answer in ("y", "yes"):
-                return True
-            if answer in ("n", "no"):
-                return False
-            self.say("[red]Please answer 'y' or 'n'.[/]")
+    def move_problem(self, state, move):
+        return move_problem(state, move)
 
-    # PlayerIO
+    def apply_move(self, state, move):
+        return apply_move(state, move)
 
-    def wants_first(self):
-        return self.ask_yes_no("Do you want to go first? (y/n):")
+    def result(self, state):
+        return _result(state.cells)
 
-    def choose_move(self, board):
-        self._draw_pending_board()
-        while True:
-            index, error = parse_move(self.ask("Your move (1-9):"))
-            if error is None:
-                return index
-            self.say(Text(error, style="red"))
+    def heuristic(self, state, side):
+        # Tic-tac-toe is always searched to the end of the Game.
+        return 0
 
-    def show(self, event):
-        if isinstance(event, Started):
-            self._human, self._computer = event.human, event.computer
-            self._last_computer_move = None
-            self.say("You are ", player_text(event.human),
-                     ", the computer is ", player_text(event.computer), ". ",
-                     player_text(X), " moves first.")
-            self.console.print()
-            self._pending_board = new_board()
-        elif isinstance(event, Moved):
-            self._draw_pending_board()
-            if event.player == self._computer:
-                self.say("Computer (", player_text(event.player),
-                         ") plays [bold]%d[/]." % cell_number(event.index))
-            self.console.print()
-            self._last_computer_move = event.last_computer_move
-            self._pending_board = event.board
-        elif isinstance(event, MoveRejected):
-            message = (REJECTION_MESSAGES[event.reason]
-                       % cell_number(event.index))
-            self.say(Text(message, style="red"))
-        elif isinstance(event, GameOver):
-            self._pending_board = None
-            self.show_board(event.board, self._last_computer_move,
-                            event.winning_line)
-            if event.result == DRAW:
-                self.say("[bold yellow]It's a draw![/]")
-            elif event.result == self._human:
-                self.say("[bold green]You win! (This should not happen...)[/]")
-            else:
-                self.say("[bold red]The computer wins![/]")
+    def best_move(self, state, depth):
+        return best_move(state)
 
-    def _draw_pending_board(self):
-        if self._pending_board is not None:
-            self.show_board(self._pending_board, self._last_computer_move)
-            self._pending_board = None
+    def unbeatable(self, depth):
+        return depth is None
+
+    def parse_move(self, text):
+        text = text.strip()
+        try:
+            number = int(text)
+        except ValueError:
+            return None, "Please enter a number from 1 to 9 (got %r)." % text
+        return cell_index(number), None
+
+    def move_text(self, move):
+        return str(cell_number(move))
+
+    def describe_move(self, move):
+        return "[bold]%d[/]" % cell_number(move)
+
+    def rejection_message(self, move, reason):
+        return REJECTION_MESSAGES[reason] % cell_number(move)
+
+    def move_prompt(self):
+        return "Your move (1-9):"
+
+    def render(self, state):
+        return board_table(state)
+
+    def intro(self):
+        return [
+            Panel.fit(
+                Text.assemble(("Tic-tac-toe", "bold"), "\n",
+                              "you vs. the unbeatable computer"),
+                border_style="bright_blue", box=box.DOUBLE, padding=(0, 4)),
+            Text("Cells are numbered like this "
+                 "(the computer's last move is highlighted):"),
+            board_table(State()),
+        ]
+
+
+GAME_TYPE = TicTacToe()
 
 
 # --------------------------------------------------------------------------
@@ -478,25 +329,4 @@ def main(argv=None):
 
 def run():
     """Play tic-tac-toe sessions at the terminal until the human stops."""
-    io = TerminalIO(Console(highlight=False))
-    io.console.print(Panel.fit(
-        Text.assemble(
-            ("Tic-tac-toe", "bold"), "\n",
-            "you vs. the unbeatable computer"),
-        border_style="bright_blue", box=box.DOUBLE, padding=(0, 4)))
-    io.say("Cells are numbered like this "
-           "(the computer's last move is highlighted):")
-    io.show_board(new_board())
-    io.console.print()
-    try:
-        while True:
-            play_game(io)
-            io.console.print()
-            if not io.ask_yes_no("Play again? (y/n):"):
-                break
-            io.console.print()
-    except (EOFError, KeyboardInterrupt):
-        io.console.print()
-    io.say("[bold]Goodbye![/]")
-    return 0
-
+    return framework.run(GAME_TYPE)

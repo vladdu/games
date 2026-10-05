@@ -5,26 +5,28 @@ from rich.console import Console
 from rich.style import Style
 
 import games.connectfour as c4
-from tests.test_tictactoe import (GOLDEN_INPUT, golden_transcript,
-                                  run_program)
-from games.connectfour import (RED, YELLOW, DRAW, OUT_OF_RANGE, FULL,
-                               Started, Moved, MoveRejected, GameOver)
+from games import framework
+from games.connectfour import FULL, GAME_TYPE as game, OUT_OF_RANGE, RED, YELLOW
+from games.framework import (DRAW, Computer, GameOver, Human, Moved,
+                             MoveRejected, Started, play_game)
+from tests.support import (GOLDEN_INPUT, ScriptedIO, golden_transcript,
+                           run_program)
 
 
 def play(*columns):
     """Return the state after dropping discs in ``columns`` (1-7, as typed)
     from the start, Red first."""
-    state = c4.new_state()
+    state = game.initial_state()
     for column in columns:
-        state = c4.apply_move(state, column - 1)
+        state = game.apply_move(state, column - 1)
     return state
 
 
 class RulesTests(unittest.TestCase):
     def test_red_moves_first_and_sides_alternate(self):
-        self.assertEqual(c4.to_move(c4.new_state()), RED)
-        self.assertEqual(c4.to_move(play(4)), YELLOW)
-        self.assertEqual(c4.to_move(play(4, 4)), RED)
+        self.assertEqual(game.to_move(game.initial_state()), RED)
+        self.assertEqual(game.to_move(play(4)), YELLOW)
+        self.assertEqual(game.to_move(play(4, 4)), RED)
 
     def test_discs_fall_to_the_lowest_empty_row(self):
         state = play(4, 4, 3)
@@ -34,21 +36,21 @@ class RulesTests(unittest.TestCase):
         self.assertIsNone(c4.disc_at(state, 2, 1))
 
     def test_game_in_progress_has_no_result(self):
-        self.assertIsNone(c4.result(c4.new_state()))
-        self.assertIsNone(c4.result(play(1, 1, 2, 2, 3, 3)))
+        self.assertIsNone(game.result(game.initial_state()))
+        self.assertIsNone(game.result(play(1, 1, 2, 2, 3, 3)))
 
     def test_horizontal_win(self):
-        self.assertEqual(c4.result(play(1, 1, 2, 2, 3, 3, 4)), RED)
+        self.assertEqual(game.result(play(1, 1, 2, 2, 3, 3, 4)), RED)
 
     def test_vertical_win(self):
-        self.assertEqual(c4.result(play(1, 2, 1, 2, 1, 2, 3, 2)), YELLOW)
+        self.assertEqual(game.result(play(1, 2, 1, 2, 1, 2, 3, 2)), YELLOW)
 
     def test_diagonal_wins(self):
         # Rising: Red at (1,0) (2,1) (3,2) (4,3).
-        self.assertEqual(c4.result(play(1, 2, 2, 3, 3, 4, 3, 4, 4, 7, 4)),
+        self.assertEqual(game.result(play(1, 2, 2, 3, 3, 4, 3, 4, 4, 7, 4)),
                          RED)
         # Falling: Red at (7,0) (6,1) (5,2) (4,3).
-        self.assertEqual(c4.result(play(7, 6, 6, 5, 5, 4, 5, 4, 4, 1, 4)),
+        self.assertEqual(game.result(play(7, 6, 6, 5, 5, 4, 5, 4, 4, 1, 4)),
                          RED)
 
     def test_full_board_without_four_is_a_draw(self):
@@ -56,75 +58,58 @@ class RulesTests(unittest.TestCase):
         moves = [int(ch) for ch in
                  "547125662261271266215743771576315353334444"]
         state = play(*moves)
-        self.assertEqual(c4.legal_moves(state), [])
-        self.assertEqual(c4.result(state), DRAW)
+        self.assertEqual(game.legal_moves(state), [])
+        self.assertEqual(game.result(state), DRAW)
 
 
-class ScriptedIO:
-    """Player I/O for a scripted human: plays ``moves`` (column indices,
-    legal or not) in order, then the leftmost column with room."""
-
-    def __init__(self, first, moves=()):
-        self.first = first
-        self.moves = list(moves)
-        self.events = []
-
-    def wants_first(self):
-        return self.first
-
-    def choose_move(self, state):
-        if self.moves:
-            return self.moves.pop(0)
-        return c4.legal_moves(state)[0]
-
-    def show(self, event):
-        self.events.append(event)
-
-    def of_type(self, kind):
-        return [e for e in self.events if isinstance(e, kind)]
+def human_vs_computer(human_first, texts=(), start=None):
+    """Play a Game with a scripted human, who types ``texts`` and then the
+    leftmost column with room, against the computer at the default
+    Difficulty. Return the Player I/O (with its events) and the Result."""
+    scripted = ScriptedIO(texts, game_type=game)
+    players = ((Human(), Computer(game.default_depth)) if human_first
+               else (Computer(game.default_depth), Human()))
+    return scripted, play_game(game, players, scripted, start=start)
 
 
 class GameTests(unittest.TestCase):
     def test_human_first_plays_red_to_a_result(self):
-        io = ScriptedIO(first=True, moves=[3])
-        result = c4.play_game(io)
-        self.assertEqual(io.events[0], Started(RED, YELLOW))
-        moved = io.of_type(Moved)
-        self.assertEqual((moved[0].side, moved[0].column), (RED, 3))
+        scripted, result = human_vs_computer(True, ["4"])
+        self.assertEqual(scripted.events[0],
+                         Started((Human(), Computer(6)), game.initial_state()))
+        moved = scripted.of_type(Moved)
+        self.assertEqual((moved[0].side, moved[0].move), (RED, 3))
         self.assertEqual([m.side for m in moved[:4]],
                          [RED, YELLOW, RED, YELLOW])
-        over = io.events[-1]
+        over = scripted.events[-1]
         self.assertIsInstance(over, GameOver)
         self.assertEqual(over.result, result)
         self.assertEqual(over.state, moved[-1].state)
-        self.assertEqual(c4.result(over.state), result)
+        self.assertEqual(game.result(over.state), result)
 
     def test_computer_first_plays_red(self):
-        io = ScriptedIO(first=False)
-        c4.play_game(io)
-        self.assertEqual(io.events[0], Started(YELLOW, RED))
-        self.assertEqual(io.of_type(Moved)[0].side, RED)
+        scripted, _ = human_vs_computer(False)
+        self.assertEqual(scripted.of_type(Moved)[0].side, RED)
+        self.assertEqual(set(scripted.prompts), {YELLOW})
 
     def test_out_of_range_column_rejected_and_asked_again(self):
-        io = ScriptedIO(first=True, moves=[7, -1, 0])
-        c4.play_game(io)
-        self.assertEqual(io.events[1:3], [MoveRejected(7, OUT_OF_RANGE),
-                                          MoveRejected(-1, OUT_OF_RANGE)])
-        self.assertEqual(io.events[3].column, 0)
+        scripted, _ = human_vs_computer(True, ["8", "0", "x", "1"])
+        self.assertEqual(scripted.events[1:3], [MoveRejected(7, OUT_OF_RANGE),
+                                                MoveRejected(-1, OUT_OF_RANGE)])
+        self.assertEqual(len(scripted.parse_errors), 1)
+        self.assertEqual(scripted.events[3].move, 0)
 
     def test_full_column_rejected_and_asked_again(self):
-        io = ScriptedIO(first=True, moves=[0, 0, 1])
-        c4.play_game(io, start=play(1, 1, 1, 1, 1, 1))
-        self.assertEqual(io.events[1:3], [MoveRejected(0, FULL),
-                                          MoveRejected(0, FULL)])
-        self.assertEqual((io.events[3].side, io.events[3].column), (RED, 1))
+        scripted, _ = human_vs_computer(True, ["1", "1", "2"],
+                                        start=play(1, 1, 1, 1, 1, 1))
+        self.assertEqual(scripted.events[1:3], [MoveRejected(0, FULL),
+                                                MoveRejected(0, FULL)])
+        self.assertEqual((scripted.events[3].side, scripted.events[3].move),
+                         (RED, 1))
 
     def test_quitting_propagates(self):
-        class QuittingIO(ScriptedIO):
-            def choose_move(self, state):
-                raise EOFError
         with self.assertRaises(EOFError):
-            c4.play_game(QuittingIO(first=True))
+            play_game(game, (Human(), Computer()), ScriptedIO())
 
 
 class ComputerTacticsTests(unittest.TestCase):
@@ -132,52 +117,46 @@ class ComputerTacticsTests(unittest.TestCase):
         # Yellow (computer) has columns 1-3 on the bottom row. The human,
         # Red, makes a vertical three in column 7 that Yellow could block,
         # but Yellow wins in column 4 instead.
-        io = ScriptedIO(first=True, moves=[6])
-        result = c4.play_game(io, start=play(7, 1, 7, 2, 6, 3))
+        scripted, result = human_vs_computer(True, ["7"],
+                                             start=play(7, 1, 7, 2, 6, 3))
         self.assertEqual(result, YELLOW)
-        last = io.of_type(Moved)[-1]
-        self.assertEqual((last.side, last.column), (YELLOW, 3))
+        last = scripted.of_type(Moved)[-1]
+        self.assertEqual((last.side, last.move), (YELLOW, 3))
 
     def test_blocks_the_opponents_win_in_one_move(self):
         # Yellow (the human) has three in column 7; Red (computer) to move.
-        io = ScriptedIO(first=False)
-        c4.play_game(io, start=play(1, 7, 2, 7, 1, 7))
-        first = io.of_type(Moved)[0]
-        self.assertEqual((first.side, first.column), (RED, 6))
+        scripted, _ = human_vs_computer(False, start=play(1, 7, 2, 7, 1, 7))
+        first = scripted.of_type(Moved)[0]
+        self.assertEqual((first.side, first.move), (RED, 6))
 
     def test_blocks_a_horizontal_threat(self):
         # The human, Red, completes columns 2-4 on the bottom row; column 5
         # is Yellow's, so the computer must block in column 1.
-        io = ScriptedIO(first=True, moves=[3])
-        c4.play_game(io, start=play(2, 5, 3, 5))
-        reply = io.of_type(Moved)[1]
-        self.assertEqual((reply.side, reply.column), (YELLOW, 0))
+        scripted, _ = human_vs_computer(True, ["4"], start=play(2, 5, 3, 5))
+        reply = scripted.of_type(Moved)[1]
+        self.assertEqual((reply.side, reply.move), (YELLOW, 0))
 
     def test_a_move_takes_about_a_second_or_less(self):
         import time
-        state = c4.new_state()
+        state = game.initial_state()
         started = time.perf_counter()
-        c4.best_move(state)
+        Computer(game.default_depth).choose_move(game, state, None)
         self.assertLess(time.perf_counter() - started, 1.0)
 
 
 class ParseMoveTests(unittest.TestCase):
     def test_column_numbers_are_one_based(self):
-        self.assertEqual(c4.parse_move("1"), (0, None))
-        self.assertEqual(c4.parse_move(" 7 "), (6, None))
+        self.assertEqual(game.parse_move("1"), (0, None))
+        self.assertEqual(game.parse_move(" 7 "), (6, None))
 
     def test_range_is_left_to_the_game(self):
-        self.assertEqual(c4.parse_move("8"), (7, None))
-        self.assertEqual(c4.parse_move("0"), (-1, None))
+        self.assertEqual(game.parse_move("8"), (7, None))
+        self.assertEqual(game.parse_move("0"), (-1, None))
 
     def test_not_a_number(self):
-        column, error = c4.parse_move("abc")
+        column, error = game.parse_move("abc")
         self.assertIsNone(column)
         self.assertIn("1 to 7", error)
-
-    def test_every_legal_move_parses_back(self):
-        for column in c4.legal_moves(c4.new_state()):
-            self.assertEqual(c4.parse_move(str(column + 1)), (column, None))
 
 
 def render(state):
@@ -187,20 +166,20 @@ def render(state):
                       file=io.StringIO())
     glyphs = []
     line = 0
-    for segment in console.render(c4.board_table(state)):
+    for segment in console.render(game.render(state)):
         if segment.text == "\n":
             line += 1
             continue
         for ch in segment.text:
             if ch.isalnum():
                 glyphs.append((line, ch, segment.style or Style()))
-    console.print(c4.board_table(state))
+    console.print(game.render(state))
     return console.export_text(styles=False), glyphs
 
 
 class RenderingTests(unittest.TestCase):
     def test_heavy_grid_with_column_header(self):
-        text, glyphs = render(c4.new_state())
+        text, glyphs = render(game.initial_state())
         for ch in "┏┳┓┣╋┫┗┻┛┃━":
             self.assertIn(ch, text, ch)
         header = [g for g in glyphs if g[0] == glyphs[0][0]]
@@ -244,7 +223,8 @@ class RenderingTests(unittest.TestCase):
 class TerminalIOTests(unittest.TestCase):
     def _shown(self, *events):
         out = io.StringIO()
-        terminal = c4.TerminalIO(Console(file=out, color_system=None))
+        terminal = framework.TerminalIO(game, Console(file=out,
+                                                      color_system=None))
         for event in events:
             terminal.show(event)
         return out.getvalue()
@@ -256,16 +236,14 @@ class TerminalIOTests(unittest.TestCase):
                       self._shown(MoveRejected(7, OUT_OF_RANGE)))
 
     def test_end_messages_address_the_human(self):
-        state = c4.new_state()
-        self.assertIn("You win!", self._shown(Started(RED, YELLOW),
-                                              GameOver(RED, state)))
+        state = game.initial_state()
+        started = Started((Human(), Computer(6)), state)
+        self.assertIn("You win!", self._shown(started, GameOver(RED, state)))
         self.assertNotIn("should not happen",
-                         self._shown(Started(RED, YELLOW),
-                                     GameOver(RED, state)))
+                         self._shown(started, GameOver(RED, state)))
         self.assertIn("The computer wins!",
-                      self._shown(Started(RED, YELLOW),
-                                  GameOver(YELLOW, state)))
-        self.assertIn("It's a draw!", self._shown(Started(RED, YELLOW),
+                      self._shown(started, GameOver(YELLOW, state)))
+        self.assertIn("It's a draw!", self._shown(started,
                                                   GameOver(DRAW, state)))
 
 

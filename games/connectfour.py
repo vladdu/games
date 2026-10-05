@@ -1,30 +1,27 @@
-"""Connect Four, the second Game type: a human plays against a depth-limited
-alpha-beta computer.
+"""Connect Four, the second Game type: Red and Yellow take turns dropping
+discs into a 7x6 board; four in a row wins.
 
 State representation: an immutable ``State`` holding the 7 columns, each a
 tuple of the discs in it from the bottom up (``"Red"`` or ``"Yellow"``), and
 the column of the most recent Move (or None at the start). A Move is a
 column index 0-6; the human types it as 1-7. Red always moves first.
-
-This module deliberately duplicates the shape of ``games.tictactoe`` (Game
-loop, Game events, Player I/O); a later step pulls the shared parts into
-``games.framework``.
 """
 
 from dataclasses import dataclass
 from typing import Optional
 
 from rich import box
-from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
+
+from games import framework
+from games.framework import DRAW
 
 COLUMNS = 7
 ROWS = 6
 RED = "Red"
 YELLOW = "Yellow"
-DRAW = "draw"
 
 
 @dataclass(frozen=True)
@@ -232,11 +229,6 @@ LAST_MOVE_STYLE = "reverse"
 WIN_STYLE = "bold white on green"
 
 
-def side_text(side):
-    """Return the Side's name ("Red" or "Yellow") in its color."""
-    return Text(side, style=SIDE_STYLES[side])
-
-
 def _place_text(state, column, row, win):
     disc = disc_at(state, column, row)
     if disc is None:
@@ -271,88 +263,8 @@ def board_table(state):
 
 
 # --------------------------------------------------------------------------
-# Game
+# The Game type
 # --------------------------------------------------------------------------
-
-@dataclass(frozen=True)
-class Started:
-    """The Game has started; ``human`` and ``computer`` are Red and Yellow."""
-    human: str
-    computer: str
-
-
-@dataclass(frozen=True)
-class Moved:
-    """``side`` dropped a disc in ``column``, giving ``state``."""
-    side: str
-    column: int
-    state: State
-
-
-@dataclass(frozen=True)
-class MoveRejected:
-    """The human's Move in ``column`` was refused for ``reason``
-    (``OUT_OF_RANGE`` or ``FULL``); the human will be asked again."""
-    column: int
-    reason: str
-
-
-@dataclass(frozen=True)
-class GameOver:
-    """The Game ended with ``result`` (RED, YELLOW or DRAW) on ``state``."""
-    result: str
-    state: State
-
-
-def play_game(io, start=None, depth=DEFAULT_DEPTH):
-    """Play one Game against the human behind ``io``, from ``start`` (the
-    empty board by default), with the computer searching ``depth`` Moves
-    ahead. ``io`` is a Player I/O like tic-tac-toe's, but its
-    ``choose_move`` returns a column index. Returns the Result."""
-    human = RED if io.wants_first() else YELLOW
-    computer = other(human)
-    io.show(Started(human, computer))
-
-    state = start if start is not None else new_state()
-    while result(state) is None:
-        side = to_move(state)
-        if side == human:
-            column = _human_move(io, state)
-        else:
-            column = best_move(state, depth)
-        state = apply_move(state, column)
-        io.show(Moved(side, column, state))
-
-    outcome = result(state)
-    io.show(GameOver(outcome, state))
-    return outcome
-
-
-def _human_move(io, state):
-    """Ask the human for a Move until a legal one is given."""
-    while True:
-        column = io.choose_move(state)
-        problem = move_problem(state, column)
-        if problem is None:
-            return column
-        io.show(MoveRejected(column, problem))
-
-
-# --------------------------------------------------------------------------
-# Terminal I/O
-# --------------------------------------------------------------------------
-
-def parse_move(text):
-    """Turn the human's input into a column index. Return ``(column, None)``
-    on success or ``(None, error_message)`` if it is not a number. The
-    column is not checked against the board."""
-    text = text.strip()
-    try:
-        number = int(text)
-    except ValueError:
-        return None, "Please enter a column number from 1 to 7 (got %r)." % text
-    return number - 1, None
-
 
 REJECTION_MESSAGES = {
     OUT_OF_RANGE: "%d is out of range; choose a column from 1 to 7.",
@@ -360,106 +272,82 @@ REJECTION_MESSAGES = {
 }
 
 
-class TerminalIO:
-    """Player I/O for a human at a terminal, drawn with rich.
+class ConnectFour:
+    """Connect Four as a Game type (see ``games.framework.GameType``)."""
 
-    The board is drawn lazily, just before the next prompt or computer
-    Move, so the final board is drawn only once, with its winning four.
-    """
+    name = "connect-four"
+    title = "Connect Four"
+    sides = (RED, YELLOW)
+    default_depth = DEFAULT_DEPTH
 
-    def __init__(self, console):
-        self.console = console
-        self._human = None
-        self._computer = None
-        self._pending_state = None
+    def side_style(self, side):
+        return SIDE_STYLES[side]
 
-    def say(self, *parts, style=None):
-        """Print a line made of strings (rich markup) and Text objects."""
-        line = Text()
-        for part in parts:
-            line.append(Text.from_markup(part) if isinstance(part, str)
-                        else part)
-        self.console.print(line, style=style)
+    def initial_state(self):
+        return new_state()
 
-    def ask(self, prompt):
-        """Prompt with rich markup. Raises EOFError on EOF."""
-        return self.console.input("[bold yellow]%s[/] " % prompt)
+    def to_move(self, state):
+        return to_move(state)
 
-    def ask_yes_no(self, prompt):
-        """Prompt until the user answers y/yes or n/no."""
-        while True:
-            answer = self.ask(prompt).strip().lower()
-            if answer in ("y", "yes"):
-                return True
-            if answer in ("n", "no"):
-                return False
-            self.say("[red]Please answer 'y' or 'n'.[/]")
+    def legal_moves(self, state):
+        return legal_moves(state)
 
-    # Player I/O
+    def move_problem(self, state, move):
+        return move_problem(state, move)
 
-    def wants_first(self):
-        return self.ask_yes_no("Do you want to go first? (y/n):")
+    def apply_move(self, state, move):
+        return apply_move(state, move)
 
-    def choose_move(self, state):
-        self._draw_pending_board()
-        while True:
-            column, error = parse_move(self.ask("Your move (1-7):"))
-            if error is None:
-                return column
-            self.say(Text(error, style="red"))
+    def result(self, state):
+        return result(state)
 
-    def show(self, event):
-        if isinstance(event, Started):
-            self._human, self._computer = event.human, event.computer
-            self.say("You are ", side_text(event.human),
-                     ", the computer is ", side_text(event.computer), ". ",
-                     side_text(RED), " moves first.")
-            self.console.print()
-            self._pending_state = new_state()
-        elif isinstance(event, Moved):
-            self._draw_pending_board()
-            if event.side == self._computer:
-                self.say("Computer (", side_text(event.side),
-                         ") plays column [bold]%d[/]." % (event.column + 1))
-            self.console.print()
-            self._pending_state = event.state
-        elif isinstance(event, MoveRejected):
-            message = REJECTION_MESSAGES[event.reason] % (event.column + 1)
-            self.say(Text(message, style="red"))
-        elif isinstance(event, GameOver):
-            self._pending_state = None
-            self.console.print(board_table(event.state))
-            if event.result == DRAW:
-                self.say("[bold yellow]It's a draw![/]")
-            elif event.result == self._human:
-                self.say("[bold green]You win![/]")
-            else:
-                self.say("[bold red]The computer wins![/]")
+    def heuristic(self, state, side):
+        return heuristic(state, side)
 
-    def _draw_pending_board(self):
-        if self._pending_state is not None:
-            self.console.print(board_table(self._pending_state))
-            self._pending_state = None
+    def best_move(self, state, depth):
+        return best_move(state, DEFAULT_DEPTH if depth is None else depth)
+
+    def unbeatable(self, depth):
+        return False
+
+    def parse_move(self, text):
+        text = text.strip()
+        try:
+            number = int(text)
+        except ValueError:
+            return None, ("Please enter a column number from 1 to 7 "
+                          "(got %r)." % text)
+        return number - 1, None
+
+    def move_text(self, move):
+        return str(move + 1)
+
+    def describe_move(self, move):
+        return "column [bold]%d[/]" % (move + 1)
+
+    def rejection_message(self, move, reason):
+        return REJECTION_MESSAGES[reason] % (move + 1)
+
+    def move_prompt(self):
+        return "Your move (1-7):"
+
+    def render(self, state):
+        return board_table(state)
+
+    def intro(self):
+        return [
+            Panel.fit(Text.assemble(("Connect Four", "bold"), "\n",
+                                    "you vs. the computer"),
+                      border_style="bright_blue", box=box.DOUBLE,
+                      padding=(0, 4)),
+            Text("Type a column number from 1 to 7 to drop a disc; "
+                 "the most recent move is highlighted."),
+        ]
+
+
+GAME_TYPE = ConnectFour()
 
 
 def run():
     """Play Connect Four sessions at the terminal until the human stops."""
-    io = TerminalIO(Console(highlight=False))
-    io.console.print(Panel.fit(
-        Text.assemble(("Connect Four", "bold"), "\n",
-                      "you vs. the computer"),
-        border_style="bright_blue", box=box.DOUBLE, padding=(0, 4)))
-    io.say("Type a column number from 1 to 7 to drop a disc; "
-           "the most recent move is highlighted.")
-    io.console.print()
-    try:
-        while True:
-            play_game(io)
-            io.console.print()
-            if not io.ask_yes_no("Play again? (y/n):"):
-                break
-            io.console.print()
-    except (EOFError, KeyboardInterrupt):
-        io.console.print()
-    io.say("[bold]Goodbye![/]")
-    return 0
+    return framework.run(GAME_TYPE)
