@@ -1,13 +1,13 @@
 # Board games
 
-A terminal game framework in which people play turn-based board games, starting with tic-tac-toe, against each other or against the computer.
+A terminal game framework in which people play turn-based board games (tic-tac-toe and Connect Four) against each other or against the computer.
 
 ## Language
 
 ### Framework
 
 **Game type**:
-A kind of game the framework can play, such as Tic-tac-toe or Connect Four. Each Game type has its own rules, its own way of drawing its board, and its own computer opponent.
+A kind of game the framework can play, such as Tic-tac-toe or Connect Four. Each Game type has its own rules, its own way of drawing its board, its own heuristic score for the shared computer search, and its own default Difficulty.
 _Avoid_: Game (on its own), ruleset, variant
 
 **Game**:
@@ -54,3 +54,14 @@ _Avoid_: Square, position, slot
 
 **Winning line**:
 The three Cells in a row, column or diagonal that hold the winner's marks.
+_Avoid_: Winning four (that is Connect Four's)
+
+### Connect Four
+
+**Column**:
+One of the seven columns of the 7×6 board, numbered 1-7 from the left. A Connect Four Move drops the Side's disc into a Column that is not full, and it falls to the lowest empty row. Red always moves first.
+_Avoid_: Slot, file
+
+**Winning four**:
+The four discs in a row, column or diagonal that hold the winner's color.
+_Avoid_: Winning line (that is Tic-tac-toe's)

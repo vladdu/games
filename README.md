@@ -1,12 +1,14 @@
 # Board games
 
-Terminal board games in Python where you play against the computer:
-tic-tac-toe and Connect Four.
+Terminal board games in Python: tic-tac-toe and Connect Four. Play against
+the computer, against another person at the same terminal, or watch the
+computer play itself.
 
 Every game's computer uses the same depth-limited alpha-beta search with
 depth-aware scoring: it takes the fastest win available and delays any loss as
 long as possible. In tic-tac-toe it searches to the end of the game, so it is
-unbeatable; in Connect Four it looks 6 moves ahead.
+unbeatable; in Connect Four it looks 6 moves ahead. You can make it weaker (or
+stronger) with `--depth`.
 
 Requires Python 3 and the [rich](https://github.com/Textualize/rich) library
 for the terminal UI. Install it with:
@@ -41,21 +43,48 @@ python3 -m games --game connect-four
 ```
 
 An unknown name is an error that lists the valid names.
-`python3 tictactoe.py` is a shortcut that starts tic-tac-toe directly. Run
-`python3 -m games --help` (or `-h`) for a short summary of how to play.
+`python3 tictactoe.py` is a shortcut that starts tic-tac-toe directly; it
+takes the same flags except `--game`. Run `python3 -m games --help` (or `-h`)
+for a short summary of how to play.
+
+### Players and Difficulty
+
+By default you play the computer, and each game asks "Do you want to go
+first?". To choose who plays each Side instead, use `--first` and `--second`
+(each `human` or `computer`); the prompt is then skipped, and "Play again"
+keeps the same Players:
+
+```sh
+python3 -m games --game connect-four --first human --second human   # hot-seat
+python3 -m games --game tictactoe --first computer --second computer # watch
+python3 -m games --first computer        # you play second against the computer
+```
+
+Giving only one of the two flags puts the other kind of Player on the other
+Side. With one human the messages address you ("You win!"); otherwise the
+opening line names each Side's Player (for example "Red: human, Yellow:
+human" or "X: computer (full depth), O: computer (depth 3)"), the move prompt names the Side to move, and the end
+message names the winner ("Red wins!").
+
+`--depth N` sets the computer's Difficulty: how many moves ahead it looks
+(1 or more). Without it, each Game type uses its own default: tic-tac-toe
+searches to the end of the game (unbeatable), Connect Four looks 6 moves
+ahead. At any limited depth the tic-tac-toe computer can be beaten. Large
+depths make Connect Four slow (depth 7 already takes a few seconds a move).
+The flags also apply after the menu.
 
 The code lives in the `games` package. `games/framework.py` holds what every
 Game type shares: the Game type interface, the Game loop, Game events, the
 human and computer Players, the terminal Player I/O and the session.
 `games/tictactoe.py` and `games/connectfour.py` each hold one Game type: its
-rules, board rendering and (for now) its own computer search.
-`games/registry.py` lists the Game types by name, and `games/__main__.py` is
-the entry point.
+rules, board rendering and the heuristic score the shared search uses.
+`games/registry.py` lists the Game types by name, `games/cli.py` is the
+command line, and `games/__main__.py` is the entry point.
 
 ## Tic-tac-toe
 
-You choose whether to go first (you are X if you go first, O otherwise; X
-always moves first). The board is drawn as a grid, and each empty cell shows
+Against the computer you choose whether to go first (you are X if you go
+first, O otherwise; X always moves first). The board is drawn as a grid, and each empty cell shows
 its number (1-9), laid out like a numeric keypad:
 
 ```
@@ -93,8 +122,8 @@ printf '1\ny\n5\n8\n4\n3\n1\nn\n' | python3 -m games
 
 ## Connect Four
 
-Connect Four is played on a 7×6 board. Red always moves first; you choose
-whether to go first (you are Red if you do, Yellow otherwise). Type a column
+Connect Four is played on a 7×6 board. Red always moves first; against the
+computer you choose whether to go first (you are Red if you do, Yellow otherwise). Type a column
 number from 1 to 7 to drop a disc: it falls to the lowest empty row of that
 column. Four in a row horizontally, vertically or diagonally wins, and a full
 board without one is a draw. Input that isn't a number, a column outside
@@ -155,4 +184,8 @@ Games played with a scripted Player I/O (including refused moves), the
 computer taking a win and blocking one from set-up positions, the board
 rendering (column header, colors and highlights), and the command line
 (`--game`, `--help` and an unknown Game type).
+`tests/test_players.py` covers choosing Players and Difficulty: hot-seat and
+computer-vs-computer Games played in-process, the intro and end messages for
+each pairing of Players, and the `--first`, `--second` and `--depth` flags
+(including invalid values and `--help`) run through the real program.
 Domain terms are defined in [GLOSSARY.md](GLOSSARY.md).
