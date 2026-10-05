@@ -64,7 +64,7 @@ class RulesTests(unittest.TestCase):
 
 def human_vs_computer(human_first, texts=(), start=None):
     """Play a Game with a scripted human, who types ``texts`` and then the
-    leftmost column with room, against the computer at the default
+    first legal column (centre first), against the computer at the default
     Difficulty. Return the Player I/O (with its events) and the Result."""
     scripted = ScriptedIO(texts, game_type=game)
     players = ((Human(), Computer(game.default_depth)) if human_first

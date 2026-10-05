@@ -3,9 +3,10 @@
 Terminal board games in Python where you play against the computer:
 tic-tac-toe and Connect Four.
 
-In tic-tac-toe the computer uses full minimax search (with alpha-beta pruning and
-depth-aware scoring), so it is unbeatable: it never loses, takes the fastest
-win available, and delays any loss as long as possible.
+Every game's computer uses the same depth-limited alpha-beta search with
+depth-aware scoring: it takes the fastest win available and delays any loss as
+long as possible. In tic-tac-toe it searches to the end of the game, so it is
+unbeatable; in Connect Four it looks 6 moves ahead.
 
 Requires Python 3 and the [rich](https://github.com/Textualize/rich) library
 for the terminal UI. Install it with:
