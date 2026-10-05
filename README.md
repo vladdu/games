@@ -75,7 +75,7 @@ The flags also apply after the menu.
 
 The code lives in the `games` package. `games/framework.py` holds what every
 Game type shares: the Game type interface, the Game loop, Game events, the
-human and computer Players, the terminal Player I/O and the session.
+human and computer Players, the terminal Player I/O and the Session.
 `games/tictactoe.py` and `games/connectfour.py` each hold one Game type: its
 rules, board rendering and the heuristic score the shared search uses.
 `games/registry.py` lists the Game types by name, `games/cli.py` is the

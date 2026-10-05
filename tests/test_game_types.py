@@ -47,9 +47,9 @@ class SharedGameTypeTests(unittest.TestCase):
                         moves = game_type.legal_moves(state)
                         self.assertTrue(moves, "no Moves, no Result")
                         state = game_type.apply_move(state, rng.choice(moves))
-                    outcome = game_type.result(state)
-                    self.assertIsNotNone(outcome)
-                    self.assertIn(outcome,
+                    result = game_type.result(state)
+                    self.assertIsNotNone(result)
+                    self.assertIn(result,
                                   list(game_type.sides) + ["draw"])
                     self.assertEqual(game_type.legal_moves(state), [])
 

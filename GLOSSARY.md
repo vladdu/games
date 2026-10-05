@@ -14,6 +14,10 @@ _Avoid_: Game (on its own), ruleset, variant
 One playthrough of a Game type, from the first move to the Result.
 _Avoid_: Match, round, session
 
+**Session**:
+A run of Games of one Game type with the same Players, from starting the program until the human stops; "play again" starts the next Game of the Session. Session setup chooses the Game type, the Players and the Difficulty.
+_Avoid_: Match, Game (for the whole run)
+
 **Side**:
 A place in a Game's turn order, such as first or second. Each Game type names its Sides: X and O in Tic-tac-toe, Red and Yellow in Connect Four.
 _Avoid_: Player (for the place itself), color, mark, seat

@@ -1,5 +1,5 @@
-"""Tic-tac-toe, the first Game type: X and O take turns placing their mark
-in an empty Cell of a 3x3 grid; three in a row wins.
+"""Tic-tac-toe, the first Game type: X and O alternate Moves, placing their
+mark in an empty Cell of a 3x3 grid; three in a row wins.
 
 State: an immutable ``State`` holding the 9 Cells (each ``"X"``, ``"O"`` or
 ``" "``, indexed 0..8 left to right and top to bottom) and the index of the
@@ -105,7 +105,7 @@ def apply_move(state, index):
 # Rich rendering (pure: builds renderables, does no I/O)
 # --------------------------------------------------------------------------
 
-PLAYER_STYLES = {X: "bold cyan", O: "bold magenta"}
+SIDE_STYLES = {X: "bold cyan", O: "bold magenta"}
 GUIDE_STYLE = "dim grey50"
 LAST_MOVE_STYLE = "reverse"
 WIN_STYLE = "bold white on green"
@@ -131,7 +131,7 @@ def _cell_text(state, index, win_line):
     cell = state.cells[index]
     if cell == EMPTY:
         return Text(str(cell_number(index)), style=GUIDE_STYLE)
-    text = Text(cell, style=PLAYER_STYLES[cell])
+    text = Text(cell, style=SIDE_STYLES[cell])
     if win_line is not None and index in win_line:
         text.stylize(WIN_STYLE)
     elif index == state.last_move:
@@ -178,7 +178,7 @@ class TicTacToe:
     default_depth = None  # unlimited: the computer is unbeatable
 
     def side_style(self, side):
-        return PLAYER_STYLES[side]
+        return SIDE_STYLES[side]
 
     def initial_state(self):
         return State()

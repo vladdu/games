@@ -1,5 +1,5 @@
 """What every Game type shares: the Game loop, Players, Game events, the
-terminal Player I/O and the session around Games.
+terminal Player I/O and the Session around Games.
 
 A Game type is an object with the ``GameType`` interface. States are
 immutable values and Moves are values only the Game type looks inside; the
@@ -7,7 +7,7 @@ framework only passes them back to the Game type.
 
 ``play_game`` plays one Game with one Player per Side and reports what
 happens as Game events to a Player I/O. ``TerminalIO`` is the Player I/O for
-a human at a terminal, and ``run`` is a whole terminal session of one Game
+a human at a terminal, and ``run`` is a whole terminal Session of one Game
 type (choosing the Players, playing again).
 """
 
@@ -77,10 +77,11 @@ class GameType(Protocol):
 
     def render(self, state):
         """A rich renderable of the board, highlighting the most recent Move
-        and the winning line, both worked out from the state."""
+        and, once a Side has won, the pieces that won it, both worked out
+        from the state."""
 
     def intro(self, matchup) -> list:
-        """Rich renderables shown once when a session starts; ``matchup``
+        """Rich renderables shown once when a Session starts; ``matchup``
         says who plays, e.g. "you vs. the computer"."""
 
 
@@ -205,11 +206,11 @@ def _score(game_type, state, me, depth, ply, alpha, beta):
     """Alpha-beta score of ``state`` from ``me``'s point of view, ``ply``
     Moves from the root and looking ``depth`` more Moves ahead (None:
     unlimited)."""
-    outcome = game_type.result(state)
-    if outcome is not None:
-        if outcome == DRAW:
+    result = game_type.result(state)
+    if result is not None:
+        if result == DRAW:
             return 0
-        return WIN_SCORE - ply if outcome == me else ply - WIN_SCORE
+        return WIN_SCORE - ply if result == me else ply - WIN_SCORE
     if depth == 0:
         return game_type.heuristic(state, me)
 
@@ -252,9 +253,9 @@ def play_game(game_type, players, io, start=None):
             io.show(MoveRejected(move, reason))
         state = game_type.apply_move(state, move)
         io.show(Moved(side, move, state))
-    outcome = game_type.result(state)
-    io.show(GameOver(outcome, state))
-    return outcome
+    result = game_type.result(state)
+    io.show(GameOver(result, state))
+    return result
 
 
 # --------------------------------------------------------------------------
@@ -264,9 +265,9 @@ def play_game(game_type, players, io, start=None):
 class TerminalIO:
     """Player I/O for a human at a terminal, drawn with rich.
 
-    The board is shown before every turn: it is drawn lazily, just before
+    The board is shown before every Move: it is drawn lazily, just before
     the next prompt or computer Move, so the final board is drawn only once,
-    with its winning line.
+    showing how the Game was won.
     """
 
     def __init__(self, game_type, console):
@@ -291,7 +292,7 @@ class TerminalIO:
         return self.console.input("[bold yellow]%s[/] " % prompt)
 
     def ask_yes_no(self, prompt):
-        """Prompt until the user answers y/yes or n/no."""
+        """Prompt until the human answers y/yes or n/no."""
         while True:
             answer = self.ask(prompt).strip().lower()
             if answer in ("y", "yes"):
@@ -433,7 +434,7 @@ def run_menu(game_types, console=None, kinds=None, depth=None):
 
 
 def matchup(game_type, kinds, depth=None):
-    """Who plays in a session, for the Game type's intro: "you vs. the
+    """Who plays in a Session, for the Game type's intro: "you vs. the
     (unbeatable) computer" by default, else e.g. "human vs. human"."""
     if kinds is not None and kinds[0] == kinds[1]:
         return "%s vs. %s" % kinds

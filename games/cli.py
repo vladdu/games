@@ -75,7 +75,7 @@ def player_kinds(first, second):
 
 
 def main(argv, prog, description, game_type=None):
-    """Parse ``argv`` and run a session. With ``game_type`` the Game type
+    """Parse ``argv`` and run a Session. With ``game_type`` the Game type
     is fixed and there is no ``--game`` flag or menu."""
     args = parser(prog, description, game_type).parse_args(argv)
     kinds = player_kinds(args.first, args.second)

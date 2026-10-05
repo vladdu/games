@@ -21,30 +21,30 @@ class WholeGameTests(unittest.TestCase):
     def test_hot_seat_game_asks_each_side_in_turn(self):
         # X: 7 8 9 across the top; O answers 4 5.
         io_ = ScriptedIO(["7", "4", "8", "5", "9"])
-        outcome = play_game(TTT, (Human(), Human()), io_)
-        self.assertEqual(outcome, tictactoe.X)
+        result = play_game(TTT, (Human(), Human()), io_)
+        self.assertEqual(result, tictactoe.X)
         self.assertEqual(io_.prompts, ["X", "O", "X", "O", "X"])
         self.assertEqual([e.side for e in io_.of_type(Moved)],
                          ["X", "O", "X", "O", "X"])
 
     def test_hot_seat_rejected_move_asks_the_same_side_again(self):
         io_ = ScriptedIO(["5", "5", "1", "8", "2", "9", "3"])
-        outcome = play_game(TTT, (Human(), Human()), io_)
+        result = play_game(TTT, (Human(), Human()), io_)
         self.assertEqual(len(io_.of_type(MoveRejected)), 1)
         self.assertEqual(io_.prompts[:3], ["X", "O", "O"])
-        self.assertEqual(outcome, tictactoe.O)
+        self.assertEqual(result, tictactoe.O)
 
     def test_computer_vs_computer_tictactoe_at_full_difficulty_is_a_draw(self):
         io_ = ScriptedIO()
-        outcome = play_game(TTT, (Computer(), Computer()), io_)
-        self.assertEqual(outcome, DRAW)
+        result = play_game(TTT, (Computer(), Computer()), io_)
+        self.assertEqual(result, DRAW)
         self.assertEqual(io_.prompts, [])
         self.assertEqual(len(io_.of_type(Moved)), 9)
 
     def test_computer_vs_computer_connect_four_ends_with_a_result(self):
         io_ = ScriptedIO()
-        outcome = play_game(C4, (Computer(2), Computer(3)), io_)
-        self.assertIn(outcome, (connectfour.RED, connectfour.YELLOW, DRAW))
+        result = play_game(C4, (Computer(2), Computer(3)), io_)
+        self.assertIn(result, (connectfour.RED, connectfour.YELLOW, DRAW))
         self.assertEqual(io_.prompts, [])
         self.assertEqual(len(io_.of_type(GameOver)), 1)
 

@@ -1,5 +1,5 @@
-"""Connect Four, the second Game type: Red and Yellow take turns dropping
-discs into a 7x6 board; four in a row wins.
+"""Connect Four, the second Game type: Red and Yellow alternate Moves,
+dropping discs into a 7x6 board; four in a row wins.
 
 State representation: an immutable ``State`` holding the 7 columns, each a
 tuple of the discs in it from the bottom up (``"Red"`` or ``"Yellow"``), and
@@ -131,7 +131,7 @@ def move_problem(state, column):
 
 
 # --------------------------------------------------------------------------
-# Computer opponent: the heuristic for the shared search
+# The computer: its heuristic for the shared search
 # --------------------------------------------------------------------------
 
 DEFAULT_DEPTH = 6
