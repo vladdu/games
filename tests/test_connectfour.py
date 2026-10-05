@@ -5,6 +5,8 @@ from rich.console import Console
 from rich.style import Style
 
 import games.connectfour as c4
+from tests.test_tictactoe import (GOLDEN_INPUT, golden_transcript,
+                                  run_program)
 from games.connectfour import (RED, YELLOW, DRAW, OUT_OF_RANGE, FULL,
                                Started, Moved, MoveRejected, GameOver)
 
@@ -237,3 +239,90 @@ class RenderingTests(unittest.TestCase):
                   if ch in "RY" and (style.bgcolor is None
                                      or style.bgcolor.name != "green")]
         self.assertEqual(others, ["Y"] * 3)
+
+
+class TerminalIOTests(unittest.TestCase):
+    def _shown(self, *events):
+        out = io.StringIO()
+        terminal = c4.TerminalIO(Console(file=out, color_system=None))
+        for event in events:
+            terminal.show(event)
+        return out.getvalue()
+
+    def test_rejected_moves_use_the_typed_column_number(self):
+        self.assertIn("Column 1 is full",
+                      self._shown(MoveRejected(0, FULL)))
+        self.assertIn("8 is out of range; choose a column from 1 to 7",
+                      self._shown(MoveRejected(7, OUT_OF_RANGE)))
+
+    def test_end_messages_address_the_human(self):
+        state = c4.new_state()
+        self.assertIn("You win!", self._shown(Started(RED, YELLOW),
+                                              GameOver(RED, state)))
+        self.assertNotIn("should not happen",
+                         self._shown(Started(RED, YELLOW),
+                                     GameOver(RED, state)))
+        self.assertIn("The computer wins!",
+                      self._shown(Started(RED, YELLOW),
+                                  GameOver(YELLOW, state)))
+        self.assertIn("It's a draw!", self._shown(Started(RED, YELLOW),
+                                                  GameOver(DRAW, state)))
+
+
+def connect_four(*args, input=""):
+    return run_program(["-m", "games"], "--game", "connect-four", *args,
+                       input=input)
+
+
+class CommandLineTests(unittest.TestCase):
+    def test_plays_connect_four_against_the_computer(self):
+        result = connect_four(input="y\nabc\n9\n4\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        out = result.stdout
+        self.assertIn("Connect Four", out)
+        self.assertIn("Do you want to go first? (y/n):", out)
+        self.assertIn("You are Red, the computer is Yellow. Red moves first.",
+                      out)
+        self.assertIn("┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃ 5 ┃ 6 ┃ 7 ┃", out)
+        self.assertIn("Your move (1-7):", out)
+        self.assertIn("Please enter a column number from 1 to 7 (got 'abc').",
+                      out)
+        self.assertIn("9 is out of range; choose a column from 1 to 7.", out)
+        self.assertRegex(out, r"Computer \(Yellow\) plays column [1-7]\.")
+        self.assertTrue(out.rstrip().endswith("Goodbye!"))
+
+    def test_plays_a_whole_game_and_asks_to_play_again(self):
+        # The human goes second and cycles through the columns (full ones
+        # are rejected) until the Game ends; extra lines are refused by the
+        # play-again prompt, and the last one answers it.
+        result = connect_four(input="n\n" + "1\n2\n3\n4\n5\n6\n7\n" * 7
+                              + "n\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        out = result.stdout
+        self.assertIn("You are Yellow, the computer is Red.", out)
+        self.assertRegex(out, r"(You win!|The computer wins!|It's a draw!)"
+                              r"\n\nPlay again\? \(y/n\):")
+        self.assertTrue(out.rstrip().endswith("Goodbye!"))
+
+    def test_tictactoe_by_name_plays_like_the_golden_transcript(self):
+        result = run_program(["-m", "games"], "--game", "tictactoe",
+                             input=GOLDEN_INPUT)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, golden_transcript())
+
+    def test_unknown_game_type_lists_the_valid_names(self):
+        result = run_program(["-m", "games"], "--game", "chess")
+        self.assertEqual(result.returncode, 2)
+        self.assertIn("chess", result.stderr)
+        self.assertIn("tictactoe", result.stderr)
+        self.assertIn("connect-four", result.stderr)
+        self.assertEqual(result.stdout, "")
+
+    def test_help_mentions_connect_four_and_game(self):
+        result = run_program(["-m", "games"], "--help")
+        self.assertEqual(result.returncode, 0)
+        text = " ".join(result.stdout.split())
+        self.assertIn("--game", text)
+        self.assertIn("Connect Four", text)
+        self.assertIn("connect-four", text)
+        self.assertNotIn("Goodbye", result.stdout)

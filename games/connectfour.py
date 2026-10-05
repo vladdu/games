@@ -15,6 +15,8 @@ from dataclasses import dataclass
 from typing import Optional
 
 from rich import box
+from rich.console import Console
+from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
@@ -350,3 +352,114 @@ def parse_move(text):
     except ValueError:
         return None, "Please enter a column number from 1 to 7 (got %r)." % text
     return number - 1, None
+
+
+REJECTION_MESSAGES = {
+    OUT_OF_RANGE: "%d is out of range; choose a column from 1 to 7.",
+    FULL: "Column %d is full; pick another column.",
+}
+
+
+class TerminalIO:
+    """Player I/O for a human at a terminal, drawn with rich.
+
+    The board is drawn lazily, just before the next prompt or computer
+    Move, so the final board is drawn only once, with its winning four.
+    """
+
+    def __init__(self, console):
+        self.console = console
+        self._human = None
+        self._computer = None
+        self._pending_state = None
+
+    def say(self, *parts, style=None):
+        """Print a line made of strings (rich markup) and Text objects."""
+        line = Text()
+        for part in parts:
+            line.append(Text.from_markup(part) if isinstance(part, str)
+                        else part)
+        self.console.print(line, style=style)
+
+    def ask(self, prompt):
+        """Prompt with rich markup. Raises EOFError on EOF."""
+        return self.console.input("[bold yellow]%s[/] " % prompt)
+
+    def ask_yes_no(self, prompt):
+        """Prompt until the user answers y/yes or n/no."""
+        while True:
+            answer = self.ask(prompt).strip().lower()
+            if answer in ("y", "yes"):
+                return True
+            if answer in ("n", "no"):
+                return False
+            self.say("[red]Please answer 'y' or 'n'.[/]")
+
+    # Player I/O
+
+    def wants_first(self):
+        return self.ask_yes_no("Do you want to go first? (y/n):")
+
+    def choose_move(self, state):
+        self._draw_pending_board()
+        while True:
+            column, error = parse_move(self.ask("Your move (1-7):"))
+            if error is None:
+                return column
+            self.say(Text(error, style="red"))
+
+    def show(self, event):
+        if isinstance(event, Started):
+            self._human, self._computer = event.human, event.computer
+            self.say("You are ", side_text(event.human),
+                     ", the computer is ", side_text(event.computer), ". ",
+                     side_text(RED), " moves first.")
+            self.console.print()
+            self._pending_state = new_state()
+        elif isinstance(event, Moved):
+            self._draw_pending_board()
+            if event.side == self._computer:
+                self.say("Computer (", side_text(event.side),
+                         ") plays column [bold]%d[/]." % (event.column + 1))
+            self.console.print()
+            self._pending_state = event.state
+        elif isinstance(event, MoveRejected):
+            message = REJECTION_MESSAGES[event.reason] % (event.column + 1)
+            self.say(Text(message, style="red"))
+        elif isinstance(event, GameOver):
+            self._pending_state = None
+            self.console.print(board_table(event.state))
+            if event.result == DRAW:
+                self.say("[bold yellow]It's a draw![/]")
+            elif event.result == self._human:
+                self.say("[bold green]You win![/]")
+            else:
+                self.say("[bold red]The computer wins![/]")
+
+    def _draw_pending_board(self):
+        if self._pending_state is not None:
+            self.console.print(board_table(self._pending_state))
+            self._pending_state = None
+
+
+def run():
+    """Play Connect Four sessions at the terminal until the human stops."""
+    io = TerminalIO(Console(highlight=False))
+    io.console.print(Panel.fit(
+        Text.assemble(("Connect Four", "bold"), "\n",
+                      "you vs. the computer"),
+        border_style="bright_blue", box=box.DOUBLE, padding=(0, 4)))
+    io.say("Type a column number from 1 to 7 to drop a disc; "
+           "the most recent move is highlighted.")
+    io.console.print()
+    try:
+        while True:
+            play_game(io)
+            io.console.print()
+            if not io.ask_yes_no("Play again? (y/n):"):
+                break
+            io.console.print()
+    except (EOFError, KeyboardInterrupt):
+        io.console.print()
+    io.say("[bold]Goodbye![/]")
+    return 0

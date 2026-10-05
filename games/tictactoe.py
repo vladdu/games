@@ -471,7 +471,13 @@ def parse_args(argv=None):
 
 
 def main(argv=None):
+    """``python3 tictactoe.py``: tic-tac-toe with its own command line."""
     parse_args(argv)
+    return run()
+
+
+def run():
+    """Play tic-tac-toe sessions at the terminal until the human stops."""
     io = TerminalIO(Console(highlight=False))
     io.console.print(Panel.fit(
         Text.assemble(
