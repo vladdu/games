@@ -13,7 +13,6 @@ colors; empty Cells show a dim guide number (1-9), the most recent Move is
 highlighted, and a Winning line gets a green background.
 """
 
-import argparse
 from dataclasses import dataclass
 from typing import Optional
 
@@ -232,11 +231,11 @@ class TicTacToe:
     def render(self, state):
         return board_table(state)
 
-    def intro(self):
+    def intro(self, matchup):
         return [
             Panel.fit(
                 Text.assemble(("Tic-tac-toe", "bold"), "\n",
-                              "you vs. the unbeatable computer"),
+                              matchup),
                 border_style="bright_blue", box=box.DOUBLE, padding=(0, 4)),
             Text("Cells are numbered like this "
                  "(the computer's last move is highlighted):"),
@@ -251,23 +250,18 @@ GAME_TYPE = TicTacToe()
 # Command line
 # --------------------------------------------------------------------------
 
-def parse_args(argv=None):
-    """Parse command-line arguments (only ``-h``/``--help`` is supported)."""
-    parser = argparse.ArgumentParser(
-        description="Play tic-tac-toe in the terminal against an unbeatable "
-                    "minimax computer. You choose whether to go first (X "
-                    "always moves first), then enter a cell number 1-9 to "
-                    "move; cells are numbered like a numeric keypad, with "
-                    "7 8 9 on the top row and 1 2 3 on the bottom.",
-        epilog="After each game you can play again (y/n). "
-               "Press Ctrl+C or Ctrl+D to quit at any time.")
-    return parser.parse_args(argv)
+DESCRIPTION = (
+    "Play tic-tac-toe in the terminal, by default against an unbeatable "
+    "computer. X always moves first; enter a cell number 1-9 to move. "
+    "Cells are numbered like a numeric keypad, with 7 8 9 on the top row "
+    "and 1 2 3 on the bottom.")
 
 
 def main(argv=None):
-    """``python3 tictactoe.py``: tic-tac-toe with its own command line."""
-    parse_args(argv)
-    return run()
+    """``python3 tictactoe.py``: tic-tac-toe with the games command line,
+    minus ``--game``."""
+    from games import cli  # cli imports the registry, which imports us
+    return cli.main(argv, None, DESCRIPTION, GAME_TYPE)
 
 
 def run():

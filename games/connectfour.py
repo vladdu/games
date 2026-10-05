@@ -279,10 +279,10 @@ class ConnectFour:
     def render(self, state):
         return board_table(state)
 
-    def intro(self):
+    def intro(self, matchup):
         return [
             Panel.fit(Text.assemble(("Connect Four", "bold"), "\n",
-                                    "you vs. the computer"),
+                                    matchup),
                       border_style="bright_blue", box=box.DOUBLE,
                       padding=(0, 4)),
             Text("Type a column number from 1 to 7 to drop a disc; "
