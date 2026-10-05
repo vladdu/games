@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Terminal tic-tac-toe: a human plays against an unbeatable minimax computer.
 
-Board representation: a tuple of 9 cells, each ``"X"``, ``"O"`` or ``" "``.
-Index 0..8 maps to the cell numbers 1..9 shown to the user, numbered left to
-right and top to bottom in a 3x3 grid.
+Board representation: a tuple of 9 cells, each ``"X"``, ``"O"`` or ``" "``,
+indexed 0..8 left to right and top to bottom in a 3x3 grid. The cell numbers
+1..9 shown to the user follow a numeric keypad instead (7 8 9 on the top row,
+1 2 3 on the bottom); ``cell_number`` and ``cell_index`` convert between them.
 
 The terminal UI uses the ``rich`` library: the board is drawn as a heavy-lined
 table with X and O in their own colors, empty cells show a dim guide number
@@ -92,7 +93,7 @@ def apply_move(board, index):
     if problem == OUT_OF_RANGE:
         raise ValueError("index out of range: %r" % (index,))
     if problem == TAKEN:
-        raise ValueError("cell %d is already occupied" % (index + 1))
+        raise ValueError("cell index %d is already occupied" % index)
     cells = list(board)
     cells[index] = to_move(board)
     return tuple(cells)
@@ -187,6 +188,24 @@ LAST_MOVE_STYLE = "reverse"
 WIN_STYLE = "bold white on green"
 
 
+def cell_number(index):
+    """Return the keypad-order number (1-9) the user sees for cell ``index``.
+
+    Indices outside 0-8 map to numbers outside 1-9 (``index + 1``), so a
+    rejected move can still be reported with the number the user typed.
+    """
+    if not 0 <= index < 9:
+        return index + 1
+    row, col = divmod(index, 3)
+    return (2 - row) * 3 + col + 1
+
+
+def cell_index(number):
+    """Return the board index for the keypad-order cell ``number``; the
+    inverse of ``cell_number`` (flipping the rows is its own inverse)."""
+    return cell_number(number - 1) - 1
+
+
 def player_text(player):
     """Return ``player`` ("X" or "O") as a styled rich Text."""
     return Text(player, style=PLAYER_STYLES[player])
@@ -199,7 +218,7 @@ def cell_text(board, index, last_move=None, win_line=None):
     computer's last move is reversed and winning cells get a green background.
     """
     if board[index] == EMPTY:
-        return Text(str(index + 1), style=GUIDE_STYLE)
+        return Text(str(cell_number(index)), style=GUIDE_STYLE)
     text = player_text(board[index])
     if win_line is not None and index in win_line:
         text.stylize(WIN_STYLE)
@@ -334,7 +353,7 @@ def parse_move(text):
         number = int(text)
     except ValueError:
         return None, "Please enter a number from 1 to 9 (got %r)." % text
-    return number - 1, None
+    return cell_index(number), None
 
 
 REJECTION_MESSAGES = {
@@ -410,12 +429,13 @@ class TerminalIO:
             self._draw_pending_board()
             if event.player == self._computer:
                 self.say("Computer (", player_text(event.player),
-                         ") plays [bold]%d[/]." % (event.index + 1))
+                         ") plays [bold]%d[/]." % cell_number(event.index))
             self.console.print()
             self._last_computer_move = event.last_computer_move
             self._pending_board = event.board
         elif isinstance(event, MoveRejected):
-            message = REJECTION_MESSAGES[event.reason] % (event.index + 1)
+            message = (REJECTION_MESSAGES[event.reason]
+                       % cell_number(event.index))
             self.say(Text(message, style="red"))
         elif isinstance(event, GameOver):
             self._pending_board = None
@@ -444,7 +464,8 @@ def parse_args(argv=None):
         description="Play tic-tac-toe in the terminal against an unbeatable "
                     "minimax computer. You choose whether to go first (X "
                     "always moves first), then enter a cell number 1-9 to "
-                    "move; cells are numbered left to right, top to bottom.",
+                    "move; cells are numbered like a numeric keypad, with "
+                    "7 8 9 on the top row and 1 2 3 on the bottom.",
         epilog="After each game you can play again (y/n). "
                "Press Ctrl+C or Ctrl+D to quit at any time.")
     return parser.parse_args(argv)

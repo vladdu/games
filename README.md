@@ -23,12 +23,12 @@ play.
 
 You choose whether to go first (you are X if you go first, O otherwise; X
 always moves first). The board is drawn as a grid, and each empty cell shows
-its number (1-9):
+its number (1-9), laid out like a numeric keypad:
 
 ```
 ┏━━━━━━━┳━━━━━━━┳━━━━━━━┓
 ┃       ┃       ┃       ┃
-┃   1   ┃   2   ┃   3   ┃
+┃   7   ┃   8   ┃   9   ┃
 ┃       ┃       ┃       ┃
 ┣━━━━━━━╋━━━━━━━╋━━━━━━━┫
 ┃       ┃       ┃       ┃
@@ -36,7 +36,7 @@ its number (1-9):
 ┃       ┃       ┃       ┃
 ┣━━━━━━━╋━━━━━━━╋━━━━━━━┫
 ┃       ┃       ┃       ┃
-┃   7   ┃   8   ┃   9   ┃
+┃   1   ┃   2   ┃   3   ┃
 ┃       ┃       ┃       ┃
 ┗━━━━━━━┻━━━━━━━┻━━━━━━━┛
 ```
@@ -55,7 +55,7 @@ Press Ctrl+C or Ctrl+D to quit at any time.
 Input comes from stdin, so the game can be scripted:
 
 ```sh
-printf 'y\n5\n2\n4\n9\n7\nn\n' | python3 tictactoe.py
+printf 'y\n5\n8\n4\n3\n1\nn\n' | python3 tictactoe.py
 ```
 
 ## Tests

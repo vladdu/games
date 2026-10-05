@@ -66,9 +66,29 @@ class BestMoveTests(unittest.TestCase):
         self.assertIsNone(t.best_move(board_from("XXXOO....")))
 
 
+class CellNumberTests(unittest.TestCase):
+    # Cells are numbered like a numeric keypad: 7 8 9 / 4 5 6 / 1 2 3.
+    KEYPAD = {7: 0, 8: 1, 9: 2, 4: 3, 5: 4, 6: 5, 1: 6, 2: 7, 3: 8}
+
+    def test_keypad_order(self):
+        for number, index in self.KEYPAD.items():
+            self.assertEqual(t.cell_number(index), number, index)
+            self.assertEqual(t.cell_index(number), index, number)
+
+    def test_out_of_range_round_trips(self):
+        for number in (-1, 0, 10):
+            index = t.cell_index(number)
+            self.assertIsNotNone(t.move_problem(t.new_board(), index), number)
+            self.assertEqual(t.cell_number(index), number)
+
+
 class ParseMoveTests(unittest.TestCase):
     def test_number(self):
         self.assertEqual(t.parse_move(" 5 \n"), (4, None))
+
+    def test_keypad_numbers(self):
+        self.assertEqual(t.parse_move("7"), (0, None))
+        self.assertEqual(t.parse_move("3"), (8, None))
 
     def test_range_is_left_to_the_game(self):
         self.assertEqual(t.parse_move("10"), (9, None))
@@ -236,11 +256,16 @@ class RenderingTests(unittest.TestCase):
 
     def test_board_shows_pieces_and_guide_numbers(self):
         out = self._render(t.board_table(board_from("O.X.X....")))
-        for ch in "OX246789":
+        # Empty indices 1, 3, 5-8 are keypad numbers 8, 4, 6, 1, 2, 3.
+        for ch in "OX123468":
             self.assertIn(ch, out, ch)
-        self.assertNotIn("1", out)
-        self.assertNotIn("3", out)
+        self.assertNotIn("7", out)
+        self.assertNotIn("9", out)
         self.assertNotIn("5", out)
+        lines = [line for line in out.splitlines() if any(c.isdigit()
+                                                          for c in line)]
+        self.assertEqual([[c for c in line if c.isdigit()] for line in lines],
+                         [["8"], ["4", "6"], ["1", "2", "3"]])
 
     def test_cell_styles(self):
         board = board_from("O.X.X....")
@@ -249,7 +274,7 @@ class RenderingTests(unittest.TestCase):
         self.assertEqual(self._style(t.cell_text(board, 2)),
                          Style.parse("bold cyan"))
         guide = t.cell_text(board, 1)
-        self.assertEqual(guide.plain, "2")
+        self.assertEqual(guide.plain, "8")
         self.assertTrue(self._style(guide).dim)
 
     def test_last_move_highlighted(self):
@@ -270,6 +295,20 @@ class RenderingTests(unittest.TestCase):
     def test_player_text_colors(self):
         self.assertEqual(t.player_text(X).style, "bold cyan")
         self.assertEqual(t.player_text(O).style, "bold magenta")
+
+
+class TerminalIOTests(unittest.TestCase):
+    def _shown(self, event):
+        out = io.StringIO()
+        terminal = t.TerminalIO(Console(file=out, color_system=None))
+        terminal.show(event)
+        return out.getvalue()
+
+    def test_rejected_move_uses_keypad_number(self):
+        self.assertIn("Cell 7 is already taken",
+                      self._shown(MoveRejected(0, TAKEN)))
+        self.assertIn("10 is out of range",
+                      self._shown(MoveRejected(9, OUT_OF_RANGE)))
 
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -302,10 +341,11 @@ class CommandLineTests(unittest.TestCase):
 
     def test_golden_transcript(self):
         # Two games: the human goes first (with every kind of bad input) and
-        # draws, then goes second and loses. golden_transcript.txt was
-        # recorded from the game before the Game / Terminal I/O split.
-        moves = ["y", "abc", "10", "5", "5", "2", "4", "9", "7",
-                 "maybe", "y", "n", "2", "3", "n"]
+        # draws, then goes second and loses. golden_transcript.txt was first
+        # recorded before the Game / Terminal I/O split, and re-recorded when
+        # cells were renumbered in keypad order.
+        moves = ["y", "abc", "10", "5", "5", "8", "4", "3", "1",
+                 "maybe", "y", "n", "8", "9", "n"]
         result = self._run(input="\n".join(moves) + "\n")
         self.assertEqual(result.returncode, 0, result.stderr)
         with open(os.path.join(HERE, "golden_transcript.txt"),

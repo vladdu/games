@@ -9,7 +9,7 @@ One game of tic-tac-toe between the human and the computer, from the first move 
 _Avoid_: Match, round, session
 
 **Cell**:
-One of the nine squares of the board, numbered 1-9 for the human, left to right and top to bottom.
+One of the nine squares of the board, numbered 1-9 for the human in numeric keypad order: 7 8 9 on the top row, 1 2 3 on the bottom.
 _Avoid_: Square, position, slot
 
 **Move**:
