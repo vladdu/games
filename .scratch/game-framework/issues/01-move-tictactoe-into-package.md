@@ -4,11 +4,11 @@
 
 **Blocked by:** None (can start immediately).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] A package exists with a framework module (empty or near-empty for now), a tic-tac-toe module holding today's rules, renderer, Player I/O and Game loop, and a module entry point.
-- [ ] `python3 -m games` plays tic-tac-toe with the same intro, prompts, board and messages as today.
-- [ ] `python3 tictactoe.py` (including `--help`) still works, starting the same program.
-- [ ] All existing tests pass, re-pointed at the new locations.
-- [ ] The golden transcript is byte-identical, run through `python3 tictactoe.py`.
-- [ ] The README's run and test commands are updated.
+- [x] A package exists with a framework module (empty or near-empty for now), a tic-tac-toe module holding today's rules, renderer, Player I/O and Game loop, and a module entry point.
+- [x] `python3 -m games` plays tic-tac-toe with the same intro, prompts, board and messages as today.
+- [x] `python3 tictactoe.py` (including `--help`) still works, starting the same program.
+- [x] All existing tests pass, re-pointed at the new locations.
+- [x] The golden transcript is byte-identical, run through `python3 tictactoe.py`.
+- [x] The README's run and test commands are updated.

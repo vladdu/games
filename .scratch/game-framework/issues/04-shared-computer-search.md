@@ -4,10 +4,10 @@
 
 **Blocked by:** 03 (Both Game types play through one Game loop).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] One search, used by the Computer Player for every Game type. It uses depth-aware scores (faster wins and slower losses preferred), the Game type's heuristic where it stops before the end of the Game, and deterministic tie-breaking.
-- [ ] Both per-Game-type searches are removed.
-- [ ] Tic-tac-toe's default Difficulty is unlimited depth, and the exhaustive "the computer never loses, playing first or second" test passes.
-- [ ] Connect Four's tactical tests pass, and its default Difficulty still keeps each Move to about a second or less.
-- [ ] The tic-tac-toe golden transcript is byte-identical.
+- [x] One search, used by the Computer Player for every Game type. It uses depth-aware scores (faster wins and slower losses preferred), the Game type's heuristic where it stops before the end of the Game, and deterministic tie-breaking.
+- [x] Both per-Game-type searches are removed.
+- [x] Tic-tac-toe's default Difficulty is unlimited depth, and the exhaustive "the computer never loses, playing first or second" test passes.
+- [x] Connect Four's tactical tests pass, and its default Difficulty still keeps each Move to about a second or less.
+- [x] The tic-tac-toe golden transcript is byte-identical.

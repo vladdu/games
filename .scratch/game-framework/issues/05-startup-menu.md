@@ -4,10 +4,10 @@
 
 **Blocked by:** 03 (Both Game types play through one Game loop).
 
-**Status:** ready-for-agent
+**Status:** resolved
 
-- [ ] The menu lists every Game type in the registry; invalid choices are re-prompted, and Ctrl+C or Ctrl+D quits.
-- [ ] "Play again" keeps the chosen Game type.
-- [ ] A process-level test pipes a scripted session through the menu path and compares it with a new, deliberately recorded golden transcript.
-- [ ] The existing tic-tac-toe golden transcript, run through `python3 tictactoe.py`, is unchanged.
-- [ ] `--help` and the README describe the menu.
+- [x] The menu lists every Game type in the registry; invalid choices are re-prompted, and Ctrl+C or Ctrl+D quits.
+- [x] "Play again" keeps the chosen Game type.
+- [x] A process-level test pipes a scripted session through the menu path and compares it with a new, deliberately recorded golden transcript.
+- [x] The existing tic-tac-toe golden transcript, run through `python3 tictactoe.py`, is unchanged.
+- [x] `--help` and the README describe the menu.
