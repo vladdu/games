@@ -73,8 +73,18 @@ def move_problem(board, index):
     return None
 
 
-def apply_move(board, index, player):
-    """Return a new board with ``player`` placed at ``index``.
+def to_move(board):
+    """Return the player who moves next on ``board`` (X always moves first).
+
+    Like ``apply_move`` and ``best_move``, this assumes ``board`` can occur
+    in a real game, i.e. it was reached from ``new_board()`` by
+    ``apply_move``.
+    """
+    return X if board.count(X) == board.count(O) else O
+
+
+def apply_move(board, index):
+    """Return a new board with the player to move placed at ``index``.
 
     Raises ValueError if the index is out of range or the cell is occupied.
     """
@@ -84,31 +94,38 @@ def apply_move(board, index, player):
     if problem == TAKEN:
         raise ValueError("cell %d is already occupied" % (index + 1))
     cells = list(board)
-    cells[index] = player
+    cells[index] = to_move(board)
     return tuple(cells)
+
+
+def _find_line(board):
+    """Return the first ``(a, b, c)`` line held by one player, or None."""
+    for line in WIN_LINES:
+        a, b, c = line
+        if board[a] != EMPTY and board[a] == board[b] == board[c]:
+            return line
+    return None
 
 
 def winner(board):
     """Return ``"X"`` or ``"O"`` for a win, ``"draw"`` for a full board with
     no winner, or ``None`` if the game is still in progress."""
-    for a, b, c in WIN_LINES:
-        if board[a] != EMPTY and board[a] == board[b] == board[c]:
-            return board[a]
+    line = _find_line(board)
+    if line is not None:
+        return board[line[0]]
     if EMPTY not in board:
         return DRAW
     return None
 
 
-def current_player(board):
-    """Return whose turn it is (X always moves first)."""
-    xs = board.count(X)
-    os_ = board.count(O)
-    return X if xs == os_ else O
+def winning_line(board):
+    """Return the ``(a, b, c)`` indices of the winning line, or None."""
+    return _find_line(board)
 
 
 @lru_cache(maxsize=None)
-def _minimax(board, to_move, me, depth, alpha, beta):
-    """Score ``board`` from ``me``'s perspective with ``to_move`` to play.
+def _minimax(board, me, depth, alpha, beta):
+    """Score ``board`` from ``me``'s perspective.
 
     Depth-aware: a win scores ``10 - depth`` (faster wins are better) and a
     loss scores ``depth - 10`` (slower losses are better). Draw is 0.
@@ -121,11 +138,10 @@ def _minimax(board, to_move, me, depth, alpha, beta):
     if result is not None:
         return depth - 10
 
-    maximizing = to_move == me
+    maximizing = to_move(board) == me
     best = -100 if maximizing else 100
     for move in available_moves(board):
-        child = apply_move(board, move, to_move)
-        score = _minimax(child, other(to_move), me, depth + 1, alpha, beta)
+        score = _minimax(apply_move(board, move), me, depth + 1, alpha, beta)
         if maximizing:
             best = max(best, score)
             alpha = max(alpha, best)
@@ -137,8 +153,8 @@ def _minimax(board, to_move, me, depth, alpha, beta):
     return best
 
 
-def best_move(board, player):
-    """Return the best cell index (0-8) for ``player`` on ``board``.
+def best_move(board):
+    """Return the best cell index (0-8) for the player to move on ``board``.
 
     Uses full minimax with alpha-beta pruning and depth-aware scoring, so the
     move chosen never loses, wins as fast as possible, and when losing is
@@ -149,25 +165,16 @@ def best_move(board, player):
     board = tuple(board)
     if winner(board) is not None:
         return None
+    player = to_move(board)
     best_score = -100
     choice = None
     for move in available_moves(board):
-        child = apply_move(board, move, player)
         # Full window per root child so scores are exact and comparable.
-        score = _minimax(child, other(player), player, 1, -100, 100)
+        score = _minimax(apply_move(board, move), player, 1, -100, 100)
         if score > best_score:
             best_score = score
             choice = move
     return choice
-
-
-def winning_line(board):
-    """Return the ``(a, b, c)`` indices of the winning line, or None."""
-    for line in WIN_LINES:
-        a, b, c = line
-        if board[a] != EMPTY and board[a] == board[b] == board[c]:
-            return line
-    return None
 
 
 # --------------------------------------------------------------------------
@@ -288,17 +295,16 @@ def play_game(io):
     io.show(Started(human, computer))
 
     board = new_board()
-    turn = X
     last_computer_move = None
     while winner(board) is None:
-        if turn == human:
+        player = to_move(board)
+        if player == human:
             move = _human_move(io, board)
         else:
-            move = best_move(board, computer)
+            move = best_move(board)
             last_computer_move = move
-        board = apply_move(board, move, turn)
-        io.show(Moved(turn, move, board, last_computer_move))
-        turn = other(turn)
+        board = apply_move(board, move)
+        io.show(Moved(player, move, board, last_computer_move))
 
     result = winner(board)
     io.show(GameOver(result, board, winning_line(board)))

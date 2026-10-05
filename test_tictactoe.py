@@ -45,25 +45,25 @@ class BestMoveTests(unittest.TestCase):
     def test_takes_immediate_win(self):
         # X to move, can win at index 2 (top row).
         board = board_from("XX.OO....")
-        self.assertEqual(t.best_move(board, X), 2)
+        self.assertEqual(t.best_move(board), 2)
 
     def test_prefers_win_over_block(self):
         # O to move: O can win at 5 rather than just blocking X at 2.
         board = board_from("XX.OO.X..")
-        self.assertEqual(t.best_move(board, O), 5)
+        self.assertEqual(t.best_move(board), 5)
 
     def test_blocks_immediate_loss(self):
         # O to move, X threatens top row at index 2.
         board = board_from("XX..O....")
-        self.assertEqual(t.best_move(board, O), 2)
+        self.assertEqual(t.best_move(board), 2)
 
     def test_blocks_column_threat(self):
         # X to move, O threatens left column at index 6.
         board = board_from("O..OX...X")
-        self.assertEqual(t.best_move(board, X), 6)
+        self.assertEqual(t.best_move(board), 6)
 
     def test_game_over_returns_none(self):
-        self.assertIsNone(t.best_move(board_from("XXXOO...."), O))
+        self.assertIsNone(t.best_move(board_from("XXXOO....")))
 
 
 class ParseMoveTests(unittest.TestCase):
@@ -158,7 +158,7 @@ class GameTests(unittest.TestCase):
 class NeverLosesTests(unittest.TestCase):
     """Exhaustively try every human move sequence against the AI."""
 
-    def _explore(self, board, turn, ai, counter):
+    def _explore(self, board, ai, counter):
         result = t.winner(board)
         if result is not None:
             self.assertNotEqual(
@@ -166,27 +166,39 @@ class NeverLosesTests(unittest.TestCase):
                 "AI (%s) lost on board %r" % (ai, board))
             counter[result] = counter.get(result, 0) + 1
             return
-        if turn == ai:
-            move = t.best_move(board, ai)
+        if t.to_move(board) == ai:
+            move = t.best_move(board)
             self.assertIn(move, t.available_moves(board))
-            self._explore(t.apply_move(board, move, ai), t.other(turn), ai,
-                          counter)
+            self._explore(t.apply_move(board, move), ai, counter)
         else:
             for move in t.available_moves(board):
-                self._explore(t.apply_move(board, move, turn), t.other(turn),
-                              ai, counter)
+                self._explore(t.apply_move(board, move), ai, counter)
 
     def test_ai_first_never_loses(self):
         counter = {}
-        self._explore(t.new_board(), X, X, counter)
+        self._explore(t.new_board(), X, counter)
         self.assertNotIn(O, counter)
         self.assertGreater(sum(counter.values()), 0)
 
     def test_ai_second_never_loses(self):
         counter = {}
-        self._explore(t.new_board(), X, O, counter)
+        self._explore(t.new_board(), O, counter)
         self.assertNotIn(X, counter)
         self.assertGreater(sum(counter.values()), 0)
+
+
+class ToMoveTests(unittest.TestCase):
+    def test_x_moves_first(self):
+        self.assertEqual(t.to_move(t.new_board()), X)
+
+    def test_players_alternate(self):
+        self.assertEqual(t.to_move(board_from("....X....")), O)
+        self.assertEqual(t.to_move(board_from("O...X....")), X)
+
+    def test_apply_move_places_player_to_move(self):
+        board = t.apply_move(t.new_board(), 4)
+        self.assertEqual(board, board_from("....X...."))
+        self.assertEqual(t.apply_move(board, 0), board_from("O...X...."))
 
 
 class WinningLineTests(unittest.TestCase):
