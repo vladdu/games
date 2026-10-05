@@ -26,7 +26,7 @@ EMPTY = " "
 X = "X"
 O = "O"
 
-# Why a Move is rejected (see move_problem).
+# Why a Move is rejected (see TicTacToe.move_problem).
 OUT_OF_RANGE = "out of range"
 TAKEN = "taken"
 
@@ -79,25 +79,6 @@ def _place(cells, index):
     placed = list(cells)
     placed[index] = _to_move(cells)
     return tuple(placed)
-
-
-def move_problem(state, index):
-    """Return why a Move at ``index`` is illegal (``OUT_OF_RANGE`` or
-    ``TAKEN``), or None if it is legal."""
-    if not 0 <= index < 9:
-        return OUT_OF_RANGE
-    if state.cells[index] != EMPTY:
-        return TAKEN
-    return None
-
-
-def apply_move(state, index):
-    """Return the state after the Side to move places its mark at
-    ``index``. Raises ValueError if the Move is not legal."""
-    problem = move_problem(state, index)
-    if problem is not None:
-        raise ValueError("cell index %r is %s" % (index, problem))
-    return State(_place(state.cells, index), index)
 
 
 # --------------------------------------------------------------------------
@@ -193,10 +174,17 @@ class TicTacToe:
         return _empty_cells(state.cells)
 
     def move_problem(self, state, move):
-        return move_problem(state, move)
+        if not 0 <= move < 9:
+            return OUT_OF_RANGE
+        if state.cells[move] != EMPTY:
+            return TAKEN
+        return None
 
     def apply_move(self, state, move):
-        return apply_move(state, move)
+        problem = self.move_problem(state, move)
+        if problem is not None:
+            raise ValueError("cell index %r is %s" % (move, problem))
+        return State(_place(state.cells, move), move)
 
     def result(self, state):
         return _result(state.cells)
