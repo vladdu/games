@@ -1,7 +1,9 @@
-# Tic-tac-toe
+# Board games
 
-A terminal tic-tac-toe game in Python where you play against the computer.
-The computer uses full minimax search (with alpha-beta pruning and
+Terminal board games in Python where you play against the computer:
+tic-tac-toe and Connect Four.
+
+In tic-tac-toe the computer uses full minimax search (with alpha-beta pruning and
 depth-aware scoring), so it is unbeatable: it never loses, takes the fastest
 win available, and delays any loss as long as possible.
 
@@ -18,13 +20,23 @@ pip install -r requirements.txt
 python3 -m games
 ```
 
-`python3 tictactoe.py` is a shortcut that starts the same program. Run
+This plays tic-tac-toe. Choose the Game type with `--game`:
+
+```sh
+python3 -m games --game tictactoe
+python3 -m games --game connect-four
+```
+
+An unknown name is an error that lists the valid names.
+`python3 tictactoe.py` is a shortcut that starts tic-tac-toe directly. Run
 `python3 -m games --help` (or `-h`) for a short summary of how to play.
 
-The code lives in the `games` package: `games/tictactoe.py` holds the
-tic-tac-toe rules, board rendering, Player I/O and Game loop,
-`games/framework.py` will hold what Game types share, and
-`games/__main__.py` is the entry point.
+The code lives in the `games` package: `games/tictactoe.py` and
+`games/connectfour.py` each hold one Game type's rules, board rendering,
+computer opponent, Player I/O and Game loop, `games/framework.py` will hold
+what Game types share, and `games/__main__.py` is the entry point.
+
+## Tic-tac-toe
 
 You choose whether to go first (you are X if you go first, O otherwise; X
 always moves first). The board is drawn as a grid, and each empty cell shows
@@ -63,13 +75,45 @@ Input comes from stdin, so the game can be scripted:
 printf 'y\n5\n8\n4\n3\n1\nn\n' | python3 -m games
 ```
 
+## Connect Four
+
+Connect Four is played on a 7×6 board. Red always moves first; you choose
+whether to go first (you are Red if you do, Yellow otherwise). Type a column
+number from 1 to 7 to drop a disc: it falls to the lowest empty row of that
+column. Four in a row horizontally, vertically or diagonally wins, and a full
+board without one is a draw. Input that isn't a number, a column outside
+1-7, and a full column are refused, and you are asked again.
+
+The board uses the same heavy-lined grid, with the column numbers above it:
+
+```
+┏━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┓
+┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃ 5 ┃ 6 ┃ 7 ┃
+┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
+┃   ┃   ┃   ┃   ┃   ┃   ┃   ┃
+┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
+...
+┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
+┃ Y ┃   ┃   ┃ R ┃ R ┃   ┃   ┃
+┗━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┛
+```
+
+Red discs (R) are bold red and Yellow discs (Y) bold yellow. The most recent
+move is shown in reverse video, and the winning four get a green background.
+
+The computer is beatable: it uses a depth-limited alpha-beta search (6 moves
+ahead) that scores unfinished positions by their open windows of four. It
+takes a win when it has one, blocks yours, and answers in well under a
+second. Ties between equally good columns are broken in a fixed order (centre
+first), so it always plays the same way in the same position.
+
 ## Tests
 
 ```sh
 python3 -m unittest -v
 ```
 
-The tests cover winner detection, input parsing, board rendering (grid lines,
+The tic-tac-toe tests cover winner detection, input parsing, board rendering (grid lines,
 glyphs and cell styles), the AI taking immediate wins
 and blocking immediate losses, and an exhaustive search over every possible
 human move sequence (with the AI playing first and second) checking that the
@@ -82,4 +126,9 @@ The tests live in `tests/`. A golden-transcript test pipes a scripted session
 through the real program (both `python3 tictactoe.py` and `python3 -m games`)
 and compares its output with `golden_transcript.txt`; if you change the terminal
 output on purpose, regenerate that file with the input listed in the test.
+The Connect Four tests (`tests/test_connectfour.py`) cover the rules, whole
+Games played with a scripted Player I/O (including refused moves), the
+computer taking a win and blocking one from set-up positions, the board
+rendering (column header, colors and highlights), and the command line
+(`--game`, `--help` and an unknown Game type).
 Domain terms are defined in [GLOSSARY.md](GLOSSARY.md).
