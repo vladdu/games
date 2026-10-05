@@ -347,14 +347,5 @@ class CommandLineTests(unittest.TestCase):
         self.assertEqual(result.stdout, golden_transcript())
 
 
-class ModuleTests(unittest.TestCase):
-    """``python3 -m games``: the program run as a module."""
-
-    def test_plays_tictactoe_like_the_golden_transcript(self):
-        result = run_program(["-m", "games"], input=GOLDEN_INPUT)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout, golden_transcript())
-
-
 if __name__ == "__main__":
     unittest.main()

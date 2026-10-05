@@ -1,0 +1,94 @@
+"""The startup menu: ``python3 -m games`` without ``--game``."""
+
+import io
+import os
+import unittest
+from unittest import mock
+
+from rich.console import Console
+
+from games import framework
+from games.registry import GAME_TYPES
+from tests.support import GOLDEN_INPUT, ROOT, golden_transcript, run_program
+
+# Three refused choices, then tic-tac-toe, played with the tic-tac-toe
+# golden session (two Games, so "Play again" is answered yes once).
+MENU_GOLDEN_INPUT = "0\nabc\n3\n1\n" + GOLDEN_INPUT
+
+
+def menu_golden_transcript():
+    with open(os.path.join(ROOT, "golden_menu_transcript.txt"),
+              encoding="utf-8") as f:
+        return f.read()
+
+
+def menu(input=""):
+    return run_program(["-m", "games"], input=input)
+
+
+class MenuTests(unittest.TestCase):
+    def test_lists_every_registered_game_type(self):
+        result = menu()
+        self.assertEqual(result.returncode, 0, result.stderr)
+        for number, game_type in enumerate(GAME_TYPES.values(), 1):
+            self.assertIn("%d. %s" % (number, game_type.title), result.stdout)
+
+    def test_plays_the_chosen_game_type(self):
+        result = menu(input="2\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("you vs. the computer", result.stdout)
+        self.assertIn("Do you want to go first? (y/n):", result.stdout)
+        self.assertNotIn("Cells are numbered", result.stdout)
+
+    def test_refuses_invalid_choices_and_asks_again(self):
+        result = menu(input="0\nabc\n3\n2\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(
+            result.stdout.count("Please enter a number from 1 to 2."), 3)
+        self.assertEqual(result.stdout.count("Game (1-2):"), 4)
+        self.assertIn("you vs. the computer", result.stdout)
+
+    def test_end_of_input_at_the_menu_quits(self):
+        result = menu(input="")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertTrue(result.stdout.rstrip().endswith("Goodbye!"))
+        self.assertNotIn("Do you want to go first?", result.stdout)
+
+    def test_ctrl_c_at_the_menu_quits(self):
+        out = io.StringIO()
+        console = Console(file=out, width=80, color_system=None)
+        with mock.patch("builtins.input", side_effect=KeyboardInterrupt):
+            status = framework.run_menu(GAME_TYPES.values(), console)
+        self.assertEqual(status, 0)
+        self.assertTrue(out.getvalue().rstrip().endswith("Goodbye!"))
+
+    def test_play_again_keeps_the_chosen_game_type(self):
+        # Connect Four, human second, then play again going second: the
+        # menu is not shown again and the second Game is Connect Four too.
+        result = menu(input="2\nn\n" + "4\n" * 21 + "y\nn\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        out = result.stdout
+        self.assertEqual(out.count("Choose a game:"), 1)
+        self.assertEqual(out.count("You are Yellow, the computer is Red."), 2)
+
+    def test_golden_transcript(self):
+        result = menu(input=MENU_GOLDEN_INPUT)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, menu_golden_transcript())
+
+    def test_golden_transcript_is_the_menu_then_tictactoe(self):
+        # The menu path adds only the menu in front of the tic-tac-toe
+        # golden session.
+        self.assertTrue(menu_golden_transcript().endswith(
+            golden_transcript()))
+
+    def test_help_describes_the_menu(self):
+        result = run_program(["-m", "games"], "--help")
+        self.assertEqual(result.returncode, 0)
+        text = " ".join(result.stdout.split())
+        self.assertIn("Without --game, a menu", text)
+        self.assertNotIn("Choose a game:", text)
+
+
+if __name__ == "__main__":
+    unittest.main()
