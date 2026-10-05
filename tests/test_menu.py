@@ -1,5 +1,6 @@
 """The startup menu: ``python3 -m games`` without ``--game``."""
 
+import contextlib
 import io
 import os
 import unittest
@@ -7,7 +8,7 @@ from unittest import mock
 
 from rich.console import Console
 
-from games import framework
+from games import cli, framework
 from games.registry import GAME_TYPES
 from tests.support import GOLDEN_INPUT, ROOT, golden_transcript, run_program
 
@@ -88,6 +89,28 @@ class MenuTests(unittest.TestCase):
         text = " ".join(result.stdout.split())
         self.assertIn("Without --game, a menu", text)
         self.assertNotIn("Choose a game:", text)
+
+    def test_help_describes_every_registered_game_type(self):
+        """Adding a Game type to the registry is enough for --help to
+        describe it."""
+        class Checkers:
+            name = "checkers"
+            title = "Checkers"
+            summary = "Checkers on an 8x8 board; jump to capture"
+            default_depth = 5
+
+        out = io.StringIO()
+        # Wide enough that argparse does not wrap inside "Tic-tac-toe".
+        with mock.patch.dict(GAME_TYPES, checkers=Checkers()), \
+                mock.patch.dict(os.environ, COLUMNS="500"), \
+                contextlib.redirect_stdout(out), \
+                self.assertRaises(SystemExit):
+            cli.main(["--help"], "python3 -m games")
+        text = " ".join(out.getvalue().split())
+        self.assertIn("checkers (Checkers on an 8x8 board; jump to capture)",
+                      text)
+        self.assertIn("tictactoe (Tic-tac-toe on a 3x3 grid", text)
+        self.assertIn("connect-four (Connect Four on a 7x6 board", text)
 
 
 if __name__ == "__main__":

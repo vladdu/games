@@ -218,6 +218,8 @@ class ConnectFour:
 
     name = "connect-four"
     title = "Connect Four"
+    summary = ("Connect Four on a 7x6 board; enter a column number 1-7 to "
+               "drop a disc, Red moves first")
     sides = (RED, YELLOW)
     default_depth = DEFAULT_DEPTH
 

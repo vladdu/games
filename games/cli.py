@@ -9,6 +9,17 @@ from games.registry import GAME_TYPES
 
 KINDS = (framework.Human.kind, framework.Computer.kind)
 
+def games_help(game_types):
+    """The ``--help`` description of ``python3 -m games``: every Game type
+    with its summary, and the menu."""
+    return (
+        "Play turn-based board games in the terminal. Game types: %s. "
+        "Without --game, a menu at startup asks which game to play (type "
+        "its number)." % "; ".join("%s (%s)" % (game_type.name,
+                                                game_type.summary)
+                                   for game_type in game_types))
+
+
 def players_help(game_types):
     """The ``--help`` paragraph on Players and Difficulty."""
     defaults = "; ".join(
@@ -74,9 +85,12 @@ def player_kinds(first, second):
     return (first or other[second], second or other[first])
 
 
-def main(argv, prog, description, game_type=None):
+def main(argv, prog, description=None, game_type=None):
     """Parse ``argv`` and run a Session. With ``game_type`` the Game type
-    is fixed and there is no ``--game`` flag or menu."""
+    is fixed and there is no ``--game`` flag or menu. ``description``
+    defaults to one naming every registered Game type."""
+    if description is None:
+        description = games_help(GAME_TYPES.values())
     args = parser(prog, description, game_type).parse_args(argv)
     kinds = player_kinds(args.first, args.second)
     if game_type is None and args.game is not None:

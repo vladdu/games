@@ -79,7 +79,9 @@ human and computer Players, the terminal Player I/O and the Session.
 `games/tictactoe.py` and `games/connectfour.py` each hold one Game type: its
 rules, board rendering and the heuristic score the shared search uses.
 `games/registry.py` lists the Game types by name, `games/cli.py` is the
-command line, and `games/__main__.py` is the entry point.
+command line, and `games/__main__.py` is the entry point. Adding a Game type
+takes only its module and an entry in the registry: the menu and `--help`
+are built from the registry.
 
 ## Tic-tac-toe
 

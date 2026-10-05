@@ -27,6 +27,7 @@ class GameType(Protocol):
 
     name: str            # for the command line, e.g. "connect-four"
     title: str           # for people, e.g. "Connect Four"
+    summary: str         # for --help, e.g. "Connect Four on a 7x6 board; ..."
     sides: tuple         # the Sides in turn order, by display name
     default_depth: Optional[int]  # default Difficulty; None is unlimited
 

@@ -173,6 +173,8 @@ class TicTacToe:
 
     name = "tictactoe"
     title = "Tic-tac-toe"
+    summary = ("Tic-tac-toe on a 3x3 grid; enter a cell number 1-9, "
+               "numbered like a numeric keypad")
     sides = (X, O)
     default_depth = None  # unlimited: the computer is unbeatable
 
