@@ -45,6 +45,10 @@ uv run games --game connect-four
 ```
 
 An unknown name is an error that lists the valid names.
+
+During a game the screen is cleared and redrawn after every move, so the
+game is played on one board instead of scrolling. When output is not a
+terminal (for example when piped), it scrolls as before, one board per move.
 `uv run tictactoe` is a shortcut that starts tic-tac-toe directly; it
 takes the same flags except `--game`. Run `uv run games --help` (or `-h`)
 for a short summary of how to play.

@@ -2,6 +2,7 @@
 Games, the messages for every pairing of Players, and the ``--first``,
 ``--second`` and ``--depth`` flags."""
 
+import contextlib
 import io
 import unittest
 from unittest import mock
@@ -125,6 +126,50 @@ class MessageTests(unittest.TestCase):
         with mock.patch("builtins.input", return_value="5"):
             terminal.ask_move("X")
         self.assertIn("X: Your move (1-9):", out.getvalue())
+
+
+def redrawn(game_type, players, texts=()):
+    """The output of a whole Game on a terminal that is redrawn in place."""
+    out = io.StringIO()
+    console = Console(file=out, width=80, color_system=None, force_terminal=True)
+    terminal = framework.TerminalIO(game_type, console, header="HEADER")
+    # Out of texts, the human quits.
+    with mock.patch("builtins.input", side_effect=[*texts, EOFError]):
+        with contextlib.suppress(EOFError):
+            play_game(game_type, players, terminal)
+    return out.getvalue()
+
+
+CLEAR = "\x1b[2J\x1b[H"
+
+
+class RedrawTests(unittest.TestCase):
+    def test_each_state_is_drawn_on_a_cleared_screen(self):
+        out = redrawn(TTT, (Human(), Human()), ["7", "4", "8", "5", "9"])
+        # The initial board and one per Move.
+        self.assertEqual(out.count(CLEAR), 6)
+        self.assertEqual(out.count("HEADER"), 6)
+        self.assertEqual(out.count("X: human, O: human. X moves first."), 6)
+        # The final screen shows the board once, then the Result.
+        final = out.split(CLEAR)[-1]
+        self.assertEqual(final.count("┏"), 1)
+        self.assertIn("X wins!", final)
+
+    def test_the_computers_move_is_shown_under_its_board(self):
+        out = redrawn(TTT, (Computer(), Human()), ["1"])
+        screens = out.split(CLEAR)[1:]
+        self.assertIn("Computer (X) plays", screens[1])
+        self.assertNotIn("Computer (X) plays", screens[2])
+
+    def test_piped_output_scrolls(self):
+        out = io.StringIO()
+        terminal = framework.TerminalIO(
+            TTT, Console(file=out, width=80, color_system=None)
+        )
+        self.assertFalse(terminal.redraw)
+        with mock.patch("builtins.input", side_effect=["7", "4", "8", "5", "9"]):
+            play_game(TTT, (Human(), Human()), terminal)
+        self.assertNotIn(CLEAR, out.getvalue())
 
 
 def games(*args, input=""):

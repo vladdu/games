@@ -296,16 +296,24 @@ def play_game(game_type, players, io, start=None):
 class TerminalIO:
     """Player I/O for a human at a terminal, drawn with rich.
 
-    The board is shown before every Move: it is drawn lazily, just before
-    the next prompt or computer Move, so the final board is drawn only once,
-    showing how the Game was won.
+    On a real terminal (``redraw``) the screen is cleared and redrawn for
+    every new state: ``header``, who plays, the board and the computer's
+    last Move, so the Game looks like it is played on one board.
+
+    Otherwise (for example when piped) the output scrolls: the board is
+    shown before every Move, drawn lazily just before the next prompt or
+    computer Move, so the final board is drawn only once, showing how the
+    Game was won.
     """
 
-    def __init__(self, game_type, console):
+    def __init__(self, game_type, console, header=None, redraw=None):
         self.game_type = game_type
         self.console = console
+        self.header = header
+        self.redraw = console.is_terminal if redraw is None else redraw
         self._players = {}
         self._pending_state = None
+        self._players_line = None
 
     def side_text(self, side):
         return Text(side, style=self.game_type.side_style(side))
@@ -348,7 +356,7 @@ class TerminalIO:
         if isinstance(event, Started):
             self._players = dict(zip(game_type.sides, event.players, strict=True))
             if self._one_human():
-                self.say(
+                line = Text.assemble(
                     "You are ",
                     self.side_text(self._side_of(human=True)),
                     ", the computer is ",
@@ -363,19 +371,32 @@ class TerminalIO:
                     if parts:
                         parts.append(", ")
                     parts += [self.side_text(side), ": " + player.describe()]
-                self.say(
+                line = Text.assemble(
                     *parts, ". ", self.side_text(game_type.sides[0]), " moves first."
                 )
+            if self.redraw:
+                self._players_line = line
+                self._draw_screen(event.state)
+                return
+            self.say(line)
             self.console.print()
             self._pending_state = event.state
         elif isinstance(event, Moved):
-            self._draw_pending_board()
+            status = None
             if not self._players[event.side].is_human:
-                self.say(
+                status = Text.assemble(
                     "Computer (",
                     self.side_text(event.side),
-                    ") plays %s." % game_type.describe_move(event.move),
+                    ") plays ",
+                    Text.from_markup(game_type.describe_move(event.move)),
+                    ".",
                 )
+            if self.redraw:
+                self._draw_screen(event.state, status)
+                return
+            self._draw_pending_board()
+            if status is not None:
+                self.say(status)
             self.console.print()
             self._pending_state = event.state
         elif isinstance(event, MoveRejected):
@@ -384,7 +405,8 @@ class TerminalIO:
             )
         elif isinstance(event, GameOver):
             self._pending_state = None
-            self.console.print(game_type.render(event.state))
+            if not self.redraw:
+                self.console.print(game_type.render(event.state))
             if event.result == DRAW:
                 self.say("[bold yellow]It's a draw![/]")
             elif not self._one_human():
@@ -411,6 +433,17 @@ class TerminalIO:
         """The one Side played by a human (or by the computer)."""
         (side,) = [s for s, p in self._players.items() if p.is_human == human]
         return side
+
+    def _draw_screen(self, state, status=None):
+        """Clear the screen and draw the Game in ``state`` from the top."""
+        self.console.clear()
+        if self.header is not None:
+            self.console.print(self.header)
+        self.say(self._players_line)
+        self.console.print()
+        self.console.print(self.game_type.render(state))
+        if status is not None:
+            self.say(status)
 
     def _draw_pending_board(self):
         if self._pending_state is not None:
@@ -502,17 +535,16 @@ def run(game_type, console=None, kinds=None, depth=None):
     whether to go first against the computer. The computer looks ``depth``
     Moves ahead, or the Game type's default Difficulty when it is None.
     "Play again" keeps the Game type and Players."""
-    io = TerminalIO(game_type, console or Console(highlight=False))
-    io.console.print(
-        Panel.fit(
-            Text.assemble(
-                (game_type.title, "bold"), "\n", matchup(game_type, kinds, depth)
-            ),
-            border_style="bright_blue",
-            box=box.DOUBLE,
-            padding=(0, 4),
-        )
+    banner = Panel.fit(
+        Text.assemble(
+            (game_type.title, "bold"), "\n", matchup(game_type, kinds, depth)
+        ),
+        border_style="bright_blue",
+        box=box.DOUBLE,
+        padding=(0, 4),
     )
+    io = TerminalIO(game_type, console or Console(highlight=False), header=banner)
+    io.console.print(banner)
     for renderable in game_type.intro(against_computer(kinds)):
         io.console.print(renderable)
     io.console.print()
