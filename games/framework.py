@@ -1,5 +1,5 @@
 """What every Game type shares: the Game loop, Players, Game events, the
-terminal Player I/O and the session around Games.
+terminal Player I/O and the Session around Games.
 
 A Game type is an object with the ``GameType`` interface. States are
 immutable values and Moves are values only the Game type looks inside; the
@@ -7,14 +7,16 @@ framework only passes them back to the Game type.
 
 ``play_game`` plays one Game with one Player per Side and reports what
 happens as Game events to a Player I/O. ``TerminalIO`` is the Player I/O for
-a human at a terminal, and ``run`` is a whole terminal session of one Game
+a human at a terminal, and ``run`` is a whole terminal Session of one Game
 type (choosing the Players, playing again).
 """
 
 from dataclasses import dataclass
 from typing import Any, Optional, Protocol
 
+from rich import box
 from rich.console import Console
+from rich.panel import Panel
 from rich.text import Text
 
 DRAW = "draw"
@@ -25,6 +27,7 @@ class GameType(Protocol):
 
     name: str            # for the command line, e.g. "connect-four"
     title: str           # for people, e.g. "Connect Four"
+    summary: str         # for --help, e.g. "Connect Four on a 7x6 board; ..."
     sides: tuple         # the Sides in turn order, by display name
     default_depth: Optional[int]  # default Difficulty; None is unlimited
 
@@ -77,11 +80,13 @@ class GameType(Protocol):
 
     def render(self, state):
         """A rich renderable of the board, highlighting the most recent Move
-        and the winning line, both worked out from the state."""
+        and, once a Side has won, the pieces that won it, both worked out
+        from the state."""
 
-    def intro(self, matchup) -> list:
-        """Rich renderables shown once when a session starts; ``matchup``
-        says who plays, e.g. "you vs. the computer"."""
+    def intro(self, against_computer) -> list:
+        """Rich renderables shown once when a Session starts, under a
+        banner with the title and who plays. ``against_computer`` is True
+        when one human plays the computer."""
 
 
 # --------------------------------------------------------------------------
@@ -141,6 +146,11 @@ class Human:
     """A human Player: types Moves through the Player I/O, and is asked
     again while the text is not a Move."""
     kind = "human"
+    is_human = True
+
+    def describe(self):
+        """The kind of Player, for the intro line."""
+        return self.kind
 
     def choose_move(self, game_type, state, io):
         side = game_type.to_move(state)
@@ -156,17 +166,15 @@ class Computer:
     """The computer, looking ``depth`` Moves ahead (None: unlimited)."""
     depth: Optional[int] = None
     kind = "computer"
+    is_human = False
+
+    def describe(self):
+        """The kind of Player and its Difficulty, for the intro line."""
+        return "computer (%s)" % ("full depth" if self.depth is None
+                                  else "depth %d" % self.depth)
 
     def choose_move(self, game_type, state, io):
         return best_move(game_type, state, self.depth)
-
-
-def describe(player):
-    """The kind of Player, e.g. "human" or "computer (depth 4)"."""
-    if isinstance(player, Computer):
-        return "computer (%s)" % ("full depth" if player.depth is None
-                                  else "depth %d" % player.depth)
-    return player.kind
 
 
 # --------------------------------------------------------------------------
@@ -205,11 +213,11 @@ def _score(game_type, state, me, depth, ply, alpha, beta):
     """Alpha-beta score of ``state`` from ``me``'s point of view, ``ply``
     Moves from the root and looking ``depth`` more Moves ahead (None:
     unlimited)."""
-    outcome = game_type.result(state)
-    if outcome is not None:
-        if outcome == DRAW:
+    result = game_type.result(state)
+    if result is not None:
+        if result == DRAW:
             return 0
-        return WIN_SCORE - ply if outcome == me else ply - WIN_SCORE
+        return WIN_SCORE - ply if result == me else ply - WIN_SCORE
     if depth == 0:
         return game_type.heuristic(state, me)
 
@@ -252,9 +260,9 @@ def play_game(game_type, players, io, start=None):
             io.show(MoveRejected(move, reason))
         state = game_type.apply_move(state, move)
         io.show(Moved(side, move, state))
-    outcome = game_type.result(state)
-    io.show(GameOver(outcome, state))
-    return outcome
+    result = game_type.result(state)
+    io.show(GameOver(result, state))
+    return result
 
 
 # --------------------------------------------------------------------------
@@ -264,9 +272,9 @@ def play_game(game_type, players, io, start=None):
 class TerminalIO:
     """Player I/O for a human at a terminal, drawn with rich.
 
-    The board is shown before every turn: it is drawn lazily, just before
+    The board is shown before every Move: it is drawn lazily, just before
     the next prompt or computer Move, so the final board is drawn only once,
-    with its winning line.
+    showing how the Game was won.
     """
 
     def __init__(self, game_type, console):
@@ -291,7 +299,7 @@ class TerminalIO:
         return self.console.input("[bold yellow]%s[/] " % prompt)
 
     def ask_yes_no(self, prompt):
-        """Prompt until the user answers y/yes or n/no."""
+        """Prompt until the human answers y/yes or n/no."""
         while True:
             answer = self.ask(prompt).strip().lower()
             if answer in ("y", "yes"):
@@ -317,9 +325,9 @@ class TerminalIO:
         if isinstance(event, Started):
             self._players = dict(zip(game_type.sides, event.players))
             if self._one_human():
-                self.say("You are ", self.side_text(self._side_of(Human)),
+                self.say("You are ", self.side_text(self._side_of(human=True)),
                          ", the computer is ",
-                         self.side_text(self._side_of(Computer)), ". ",
+                         self.side_text(self._side_of(human=False)), ". ",
                          self.side_text(game_type.sides[0]),
                          " moves first.")
             else:
@@ -327,14 +335,14 @@ class TerminalIO:
                 for side, player in self._players.items():
                     if parts:
                         parts.append(", ")
-                    parts += [self.side_text(side), ": " + describe(player)]
+                    parts += [self.side_text(side), ": " + player.describe()]
                 self.say(*parts, ". ", self.side_text(game_type.sides[0]),
                          " moves first.")
             self.console.print()
             self._pending_state = event.state
         elif isinstance(event, Moved):
             self._draw_pending_board()
-            if isinstance(self._players[event.side], Computer):
+            if not self._players[event.side].is_human:
                 self.say("Computer (", self.side_text(event.side),
                          ") plays %s." % game_type.describe_move(event.move))
             self.console.print()
@@ -351,8 +359,8 @@ class TerminalIO:
             elif not self._one_human():
                 self.say(Text.assemble(
                     self.side_text(event.result), " wins!", style="bold"))
-            elif isinstance(self._players[event.result], Human):
-                computer = self._players[self._side_of(Computer)]
+            elif self._players[event.result].is_human:
+                computer = self._players[self._side_of(human=False)]
                 suffix = (" (This should not happen...)"
                           if game_type.unbeatable(computer.depth) else "")
                 self.say("[bold green]You win!%s[/]" % suffix)
@@ -362,11 +370,12 @@ class TerminalIO:
     def _one_human(self):
         """True when exactly one Side is played by a human, who is then
         addressed as "you"."""
-        return sum(isinstance(p, Human) for p in self._players.values()) == 1
+        return sum(p.is_human for p in self._players.values()) == 1
 
-    def _side_of(self, kind):
-        """The one Side played by a Player of ``kind``."""
-        (side,) = [s for s, p in self._players.items() if isinstance(p, kind)]
+    def _side_of(self, human):
+        """The one Side played by a human (or by the computer)."""
+        (side,) = [s for s, p in self._players.items()
+                   if p.is_human == human]
         return side
 
     def _draw_pending_board(self):
@@ -427,15 +436,20 @@ def run_menu(game_types, console=None, kinds=None, depth=None):
         game_type = choose_game_type(game_types, console)
     except (EOFError, KeyboardInterrupt):
         console.print()
-        console.print(Text.from_markup("[bold]Goodbye![/]"))
-        return 0
+        return _goodbye(console)
     return run(game_type, console, kinds, depth)
 
 
+def against_computer(kinds):
+    """True when ``kinds`` (None: the default) has one human play the
+    computer."""
+    return kinds is None or kinds[0] != kinds[1]
+
+
 def matchup(game_type, kinds, depth=None):
-    """Who plays in a session, for the Game type's intro: "you vs. the
+    """Who plays in a Session, for the intro banner: "you vs. the
     (unbeatable) computer" by default, else e.g. "human vs. human"."""
-    if kinds is not None and kinds[0] == kinds[1]:
+    if not against_computer(kinds):
         return "%s vs. %s" % kinds
     if depth is None:
         depth = game_type.default_depth
@@ -452,7 +466,11 @@ def run(game_type, console=None, kinds=None, depth=None):
     Moves ahead, or the Game type's default Difficulty when it is None.
     "Play again" keeps the Game type and Players."""
     io = TerminalIO(game_type, console or Console(highlight=False))
-    for renderable in game_type.intro(matchup(game_type, kinds, depth)):
+    io.console.print(Panel.fit(
+        Text.assemble((game_type.title, "bold"), "\n",
+                      matchup(game_type, kinds, depth)),
+        border_style="bright_blue", box=box.DOUBLE, padding=(0, 4)))
+    for renderable in game_type.intro(against_computer(kinds)):
         io.console.print(renderable)
     io.console.print()
     try:
@@ -468,5 +486,10 @@ def run(game_type, console=None, kinds=None, depth=None):
             io.console.print()
     except (EOFError, KeyboardInterrupt):
         io.console.print()
-    io.say("[bold]Goodbye![/]")
+    return _goodbye(io.console)
+
+
+def _goodbye(console):
+    """Say goodbye as the program ends; returns its exit status."""
+    console.print("[bold]Goodbye![/]")
     return 0

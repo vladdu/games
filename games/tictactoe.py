@@ -1,5 +1,5 @@
-"""Tic-tac-toe, the first Game type: X and O take turns placing their mark
-in an empty Cell of a 3x3 grid; three in a row wins.
+"""Tic-tac-toe, the first Game type: X and O alternate Moves, placing their
+mark in an empty Cell of a 3x3 grid; three in a row wins.
 
 State: an immutable ``State`` holding the 9 Cells (each ``"X"``, ``"O"`` or
 ``" "``, indexed 0..8 left to right and top to bottom) and the index of the
@@ -17,18 +17,16 @@ from dataclasses import dataclass
 from typing import Optional
 
 from rich import box
-from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from games import framework
 from games.framework import DRAW
 
 EMPTY = " "
 X = "X"
 O = "O"
 
-# Why a Move is rejected (see move_problem).
+# Why a Move is rejected (see TicTacToe.move_problem).
 OUT_OF_RANGE = "out of range"
 TAKEN = "taken"
 
@@ -83,30 +81,11 @@ def _place(cells, index):
     return tuple(placed)
 
 
-def move_problem(state, index):
-    """Return why a Move at ``index`` is illegal (``OUT_OF_RANGE`` or
-    ``TAKEN``), or None if it is legal."""
-    if not 0 <= index < 9:
-        return OUT_OF_RANGE
-    if state.cells[index] != EMPTY:
-        return TAKEN
-    return None
-
-
-def apply_move(state, index):
-    """Return the state after the Side to move places its mark at
-    ``index``. Raises ValueError if the Move is not legal."""
-    problem = move_problem(state, index)
-    if problem is not None:
-        raise ValueError("cell index %r is %s" % (index, problem))
-    return State(_place(state.cells, index), index)
-
-
 # --------------------------------------------------------------------------
 # Rich rendering (pure: builds renderables, does no I/O)
 # --------------------------------------------------------------------------
 
-PLAYER_STYLES = {X: "bold cyan", O: "bold magenta"}
+SIDE_STYLES = {X: "bold cyan", O: "bold magenta"}
 GUIDE_STYLE = "dim grey50"
 LAST_MOVE_STYLE = "reverse"
 WIN_STYLE = "bold white on green"
@@ -132,7 +111,7 @@ def _cell_text(state, index, win_line):
     cell = state.cells[index]
     if cell == EMPTY:
         return Text(str(cell_number(index)), style=GUIDE_STYLE)
-    text = Text(cell, style=PLAYER_STYLES[cell])
+    text = Text(cell, style=SIDE_STYLES[cell])
     if win_line is not None and index in win_line:
         text.stylize(WIN_STYLE)
     elif index == state.last_move:
@@ -175,11 +154,13 @@ class TicTacToe:
 
     name = "tictactoe"
     title = "Tic-tac-toe"
+    summary = ("Tic-tac-toe on a 3x3 grid; enter a cell number 1-9, "
+               "numbered like a numeric keypad")
     sides = (X, O)
     default_depth = None  # unlimited: the computer is unbeatable
 
     def side_style(self, side):
-        return PLAYER_STYLES[side]
+        return SIDE_STYLES[side]
 
     def initial_state(self):
         return State()
@@ -193,10 +174,17 @@ class TicTacToe:
         return _empty_cells(state.cells)
 
     def move_problem(self, state, move):
-        return move_problem(state, move)
+        if not 0 <= move < 9:
+            return OUT_OF_RANGE
+        if state.cells[move] != EMPTY:
+            return TAKEN
+        return None
 
     def apply_move(self, state, move):
-        return apply_move(state, move)
+        problem = self.move_problem(state, move)
+        if problem is not None:
+            raise ValueError("cell index %r is %s" % (move, problem))
+        return State(_place(state.cells, move), move)
 
     def result(self, state):
         return _result(state.cells)
@@ -231,14 +219,12 @@ class TicTacToe:
     def render(self, state):
         return board_table(state)
 
-    def intro(self, matchup):
+    def intro(self, against_computer):
+        highlighted = ("the computer's last move" if against_computer
+                       else "the most recent move")
         return [
-            Panel.fit(
-                Text.assemble(("Tic-tac-toe", "bold"), "\n",
-                              matchup),
-                border_style="bright_blue", box=box.DOUBLE, padding=(0, 4)),
-            Text("Cells are numbered like this "
-                 "(the computer's last move is highlighted):"),
+            Text("Cells are numbered like this (%s is highlighted):"
+                 % highlighted),
             board_table(State()),
         ]
 
@@ -262,8 +248,3 @@ def main(argv=None):
     minus ``--game``."""
     from games import cli  # cli imports the registry, which imports us
     return cli.main(argv, None, DESCRIPTION, GAME_TYPE)
-
-
-def run():
-    """Play tic-tac-toe sessions at the terminal until the human stops."""
-    return framework.run(GAME_TYPE)

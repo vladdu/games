@@ -1,5 +1,5 @@
-"""Connect Four, the second Game type: Red and Yellow take turns dropping
-discs into a 7x6 board; four in a row wins.
+"""Connect Four, the second Game type: Red and Yellow alternate Moves,
+dropping discs into a 7x6 board; four in a row wins.
 
 State representation: an immutable ``State`` holding the 7 columns, each a
 tuple of the discs in it from the bottom up (``"Red"`` or ``"Yellow"``), and
@@ -11,11 +11,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 from rich import box
-from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from games import framework
 from games.framework import DRAW
 
 COLUMNS = 7
@@ -32,22 +30,6 @@ class State:
     last_move: Optional[int] = None
 
 
-def new_state():
-    """Return the empty board, Red to move."""
-    return State()
-
-
-def other(side):
-    """Return the opponent of ``side``."""
-    return YELLOW if side == RED else RED
-
-
-def to_move(state):
-    """Return the Side to move: Red when both Sides have as many discs."""
-    discs = sum(len(column) for column in state.columns)
-    return RED if discs % 2 == 0 else YELLOW
-
-
 def disc_at(state, column, row):
     """Return the disc at ``column`` (0-6) and ``row`` (0 = bottom), or
     None if that place is empty."""
@@ -55,33 +37,7 @@ def disc_at(state, column, row):
     return discs[row] if row < len(discs) else None
 
 
-# Legal Moves are listed centre first: the computer's search tries them in
-# this order, which prunes more, and among equally good Moves plays the first.
-MOVE_ORDER = (3, 2, 4, 1, 5, 0, 6)
-
-
-def legal_moves(state):
-    """Return the columns (0-6) that still have room, centre first."""
-    if _find_four(state) is not None:
-        return []
-    return [c for c in MOVE_ORDER if len(state.columns[c]) < ROWS]
-
-
-def apply_move(state, column):
-    """Return the state after the Side to move drops a disc in ``column``.
-
-    Raises ValueError if the Move is not legal.
-    """
-    if not 0 <= column < COLUMNS:
-        raise ValueError("column out of range: %r" % (column,))
-    if len(state.columns[column]) >= ROWS:
-        raise ValueError("column %d is full" % column)
-    columns = list(state.columns)
-    columns[column] = columns[column] + (to_move(state),)
-    return State(tuple(columns), column)
-
-
-def _lines():
+def windows():
     """Yield every window of four places as ``((col, row), ...)``."""
     for col in range(COLUMNS):
         for row in range(ROWS):
@@ -92,7 +48,20 @@ def _lines():
                                 for i in range(4))
 
 
-WINDOWS = tuple(_lines())
+WINDOWS = tuple(windows())
+
+# Legal Moves are listed centre first: the computer's search tries them in
+# this order, which prunes more, and among equally good Moves plays the first.
+MOVE_ORDER = (3, 2, 4, 1, 5, 0, 6)
+
+# Why a Move is rejected (see ConnectFour.move_problem).
+OUT_OF_RANGE = "out of range"
+FULL = "full"
+
+DEFAULT_DEPTH = 6
+# Score of a window of four holding n discs of one Side and none of the
+# other, for the heuristic of the shared search.
+WINDOW_SCORES = {1: 1, 2: 10, 3: 50}
 
 
 def _find_four(state):
@@ -103,67 +72,6 @@ def _find_four(state):
                                      for c, r in window[1:]):
             return window
     return None
-
-
-def result(state):
-    """Return RED or YELLOW for a win, DRAW for a full board with no four
-    in a row, or None while the Game is in progress."""
-    four = _find_four(state)
-    if four is not None:
-        return disc_at(state, *four[0])
-    if all(len(column) == ROWS for column in state.columns):
-        return DRAW
-    return None
-
-
-def winning_four(state):
-    """Return the ``(col, row)`` places of the winning four, or None."""
-    return _find_four(state)
-
-
-# Why a Move is rejected (see move_problem).
-OUT_OF_RANGE = "out of range"
-FULL = "full"
-
-
-def move_problem(state, column):
-    """Return why dropping a disc in ``column`` is not allowed
-    (``OUT_OF_RANGE`` or ``FULL``), or None if the Move is legal."""
-    if not 0 <= column < COLUMNS:
-        return OUT_OF_RANGE
-    if len(state.columns[column]) >= ROWS:
-        return FULL
-    return None
-
-
-# --------------------------------------------------------------------------
-# Computer opponent: the heuristic for the shared search
-# --------------------------------------------------------------------------
-
-DEFAULT_DEPTH = 6
-# Score of a window of four holding n discs of one Side and none of the
-# other.
-WINDOW_SCORES = {1: 1, 2: 10, 3: 50}
-
-
-def heuristic(state, side):
-    """Score a position in progress from ``side``'s point of view: every
-    open window of four (holding discs of only one Side) counts for the
-    Side holding it, more the fuller it is."""
-    score = 0
-    for window in WINDOWS:
-        mine = theirs = 0
-        for c, r in window:
-            disc = disc_at(state, c, r)
-            if disc == side:
-                mine += 1
-            elif disc is not None:
-                theirs += 1
-        if mine and not theirs:
-            score += WINDOW_SCORES[mine]
-        elif theirs and not mine:
-            score -= WINDOW_SCORES[theirs]
-    return score
 
 
 # --------------------------------------------------------------------------
@@ -203,7 +111,7 @@ def board_table(state):
     for column in range(COLUMNS):
         table.add_column(Text(str(column + 1), style=HEADER_STYLE),
                          justify="center", min_width=1)
-    win = winning_four(state) or ()
+    win = _find_four(state) or ()
     for row in reversed(range(ROWS)):
         table.add_row(*(_place_text(state, column, row, win)
                         for column in range(COLUMNS)))
@@ -225,6 +133,8 @@ class ConnectFour:
 
     name = "connect-four"
     title = "Connect Four"
+    summary = ("Connect Four on a 7x6 board; enter a column number 1-7 to "
+               "drop a disc, Red moves first")
     sides = (RED, YELLOW)
     default_depth = DEFAULT_DEPTH
 
@@ -232,25 +142,59 @@ class ConnectFour:
         return SIDE_STYLES[side]
 
     def initial_state(self):
-        return new_state()
+        return State()
 
     def to_move(self, state):
-        return to_move(state)
+        # Red when both Sides have as many discs.
+        discs = sum(len(column) for column in state.columns)
+        return RED if discs % 2 == 0 else YELLOW
 
     def legal_moves(self, state):
-        return legal_moves(state)
+        # The columns that still have room, centre first.
+        if _find_four(state) is not None:
+            return []
+        return [c for c in MOVE_ORDER if len(state.columns[c]) < ROWS]
 
     def move_problem(self, state, move):
-        return move_problem(state, move)
+        if not 0 <= move < COLUMNS:
+            return OUT_OF_RANGE
+        if len(state.columns[move]) >= ROWS:
+            return FULL
+        return None
 
     def apply_move(self, state, move):
-        return apply_move(state, move)
+        problem = self.move_problem(state, move)
+        if problem is not None:
+            raise ValueError("column %r is %s" % (move, problem))
+        columns = list(state.columns)
+        columns[move] = columns[move] + (self.to_move(state),)
+        return State(tuple(columns), move)
 
     def result(self, state):
-        return result(state)
+        four = _find_four(state)
+        if four is not None:
+            return disc_at(state, *four[0])
+        if all(len(column) == ROWS for column in state.columns):
+            return DRAW
+        return None
 
     def heuristic(self, state, side):
-        return heuristic(state, side)
+        # Every open window of four (holding discs of only one Side) counts
+        # for the Side holding it, more the fuller it is.
+        score = 0
+        for window in WINDOWS:
+            mine = theirs = 0
+            for c, r in window:
+                disc = disc_at(state, c, r)
+                if disc == side:
+                    mine += 1
+                elif disc is not None:
+                    theirs += 1
+            if mine and not theirs:
+                score += WINDOW_SCORES[mine]
+            elif theirs and not mine:
+                score -= WINDOW_SCORES[theirs]
+        return score
 
     def unbeatable(self, depth):
         return False
@@ -279,20 +223,11 @@ class ConnectFour:
     def render(self, state):
         return board_table(state)
 
-    def intro(self, matchup):
+    def intro(self, against_computer):
         return [
-            Panel.fit(Text.assemble(("Connect Four", "bold"), "\n",
-                                    matchup),
-                      border_style="bright_blue", box=box.DOUBLE,
-                      padding=(0, 4)),
             Text("Type a column number from 1 to 7 to drop a disc; "
                  "the most recent move is highlighted."),
         ]
 
 
 GAME_TYPE = ConnectFour()
-
-
-def run():
-    """Play Connect Four sessions at the terminal until the human stops."""
-    return framework.run(GAME_TYPE)
