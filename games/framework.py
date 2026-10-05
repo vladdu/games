@@ -436,8 +436,7 @@ def run_menu(game_types, console=None, kinds=None, depth=None):
         game_type = choose_game_type(game_types, console)
     except (EOFError, KeyboardInterrupt):
         console.print()
-        console.print(Text.from_markup("[bold]Goodbye![/]"))
-        return 0
+        return _goodbye(console)
     return run(game_type, console, kinds, depth)
 
 
@@ -487,5 +486,10 @@ def run(game_type, console=None, kinds=None, depth=None):
             io.console.print()
     except (EOFError, KeyboardInterrupt):
         io.console.print()
-    io.say("[bold]Goodbye![/]")
+    return _goodbye(io.console)
+
+
+def _goodbye(console):
+    """Say goodbye as the program ends; returns its exit status."""
+    console.print("[bold]Goodbye![/]")
     return 0
