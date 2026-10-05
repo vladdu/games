@@ -15,11 +15,16 @@ pip install -r requirements.txt
 ## Play
 
 ```sh
-python3 tictactoe.py
+python3 -m games
 ```
 
-Run `python3 tictactoe.py --help` (or `-h`) for a short summary of how to
-play.
+`python3 tictactoe.py` is a shortcut that starts the same program. Run
+`python3 -m games --help` (or `-h`) for a short summary of how to play.
+
+The code lives in the `games` package: `games/tictactoe.py` holds the
+tic-tac-toe rules, board rendering, Player I/O and Game loop,
+`games/framework.py` will hold what Game types share, and
+`games/__main__.py` is the entry point.
 
 You choose whether to go first (you are X if you go first, O otherwise; X
 always moves first). The board is drawn as a grid, and each empty cell shows
@@ -55,7 +60,7 @@ Press Ctrl+C or Ctrl+D to quit at any time.
 Input comes from stdin, so the game can be scripted:
 
 ```sh
-printf 'y\n5\n8\n4\n3\n1\nn\n' | python3 tictactoe.py
+printf 'y\n5\n8\n4\n3\n1\nn\n' | python3 -m games
 ```
 
 ## Tests
@@ -73,7 +78,8 @@ AI never loses.
 Whole games are tested in-process: the game talks to the human only through a
 small Player I/O interface, so the tests play it with a scripted adapter and
 check the game events (moves, rejected moves, the result and winning line).
-A golden-transcript test pipes a scripted session through the real program and
-compares its output with `golden_transcript.txt`; if you change the terminal
+The tests live in `tests/`. A golden-transcript test pipes a scripted session
+through the real program (both `python3 tictactoe.py` and `python3 -m games`)
+and compares its output with `golden_transcript.txt`; if you change the terminal
 output on purpose, regenerate that file with the input listed in the test.
 Domain terms are defined in [GLOSSARY.md](GLOSSARY.md).

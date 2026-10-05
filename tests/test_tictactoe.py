@@ -7,9 +7,9 @@ import unittest
 from rich.console import Console
 from rich.style import Style
 
-import tictactoe as t
-from tictactoe import (X, O, EMPTY, DRAW, OUT_OF_RANGE, TAKEN, Started,
-                       Moved, MoveRejected, GameOver)
+import games.tictactoe as t
+from games.tictactoe import (X, O, EMPTY, DRAW, OUT_OF_RANGE, TAKEN,
+                             Started, Moved, MoveRejected, GameOver)
 
 
 def board_from(s):
@@ -311,19 +311,38 @@ class TerminalIOTests(unittest.TestCase):
                       self._shown(MoveRejected(9, OUT_OF_RANGE)))
 
 
-HERE = os.path.dirname(os.path.abspath(__file__))
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Two games: the human goes first (with every kind of bad input) and draws,
+# then goes second and loses. golden_transcript.txt was first recorded before
+# the Game / Terminal I/O split, and re-recorded when cells were renumbered in
+# keypad order.
+GOLDEN_INPUT = "\n".join(["y", "abc", "10", "5", "5", "8", "4", "3", "1",
+                          "maybe", "y", "n", "8", "9", "n"]) + "\n"
+
+
+def run_program(command, *args, input=""):
+    """Run ``command`` (a list) from the project root with plain output."""
+    env = dict(os.environ, NO_COLOR="1", COLUMNS="80",
+               PYTHONIOENCODING="utf-8")
+    env.pop("FORCE_COLOR", None)
+    return subprocess.run([sys.executable] + command + list(args),
+                          input=input, capture_output=True, text=True,
+                          encoding="utf-8", env=env, cwd=ROOT, timeout=30)
+
+
+def golden_transcript():
+    with open(os.path.join(ROOT, "golden_transcript.txt"),
+              encoding="utf-8") as f:
+        return f.read()
 
 
 class CommandLineTests(unittest.TestCase):
-    SCRIPT = os.path.join(HERE, "tictactoe.py")
+    """``python3 tictactoe.py``: the shortcut straight into tic-tac-toe."""
 
     def _run(self, *args, input=""):
-        env = dict(os.environ, NO_COLOR="1", COLUMNS="80",
-                   PYTHONIOENCODING="utf-8")
-        env.pop("FORCE_COLOR", None)
-        return subprocess.run([sys.executable, self.SCRIPT] + list(args),
-                              input=input, capture_output=True, text=True,
-                              encoding="utf-8", env=env, timeout=30)
+        return run_program([os.path.join(ROOT, "tictactoe.py")], *args,
+                           input=input)
 
     def test_help(self):
         for flag in ("--help", "-h"):
@@ -340,17 +359,18 @@ class CommandLineTests(unittest.TestCase):
         self.assertIn("usage:", result.stderr)
 
     def test_golden_transcript(self):
-        # Two games: the human goes first (with every kind of bad input) and
-        # draws, then goes second and loses. golden_transcript.txt was first
-        # recorded before the Game / Terminal I/O split, and re-recorded when
-        # cells were renumbered in keypad order.
-        moves = ["y", "abc", "10", "5", "5", "8", "4", "3", "1",
-                 "maybe", "y", "n", "8", "9", "n"]
-        result = self._run(input="\n".join(moves) + "\n")
+        result = self._run(input=GOLDEN_INPUT)
         self.assertEqual(result.returncode, 0, result.stderr)
-        with open(os.path.join(HERE, "golden_transcript.txt"),
-                  encoding="utf-8") as f:
-            self.assertEqual(result.stdout, f.read())
+        self.assertEqual(result.stdout, golden_transcript())
+
+
+class ModuleTests(unittest.TestCase):
+    """``python3 -m games``: the program run as a module."""
+
+    def test_plays_tictactoe_like_the_golden_transcript(self):
+        result = run_program(["-m", "games"], input=GOLDEN_INPUT)
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertEqual(result.stdout, golden_transcript())
 
 
 if __name__ == "__main__":
