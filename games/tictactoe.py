@@ -17,7 +17,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 from rich import box
-from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
@@ -230,12 +229,8 @@ class TicTacToe:
     def render(self, state):
         return board_table(state)
 
-    def intro(self, matchup):
+    def intro(self):
         return [
-            Panel.fit(
-                Text.assemble(("Tic-tac-toe", "bold"), "\n",
-                              matchup),
-                border_style="bright_blue", box=box.DOUBLE, padding=(0, 4)),
             Text("Cells are numbered like this "
                  "(the computer's last move is highlighted):"),
             board_table(State()),

@@ -11,7 +11,6 @@ from dataclasses import dataclass
 from typing import Optional
 
 from rich import box
-from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
@@ -273,12 +272,8 @@ class ConnectFour:
     def render(self, state):
         return board_table(state)
 
-    def intro(self, matchup):
+    def intro(self):
         return [
-            Panel.fit(Text.assemble(("Connect Four", "bold"), "\n",
-                                    matchup),
-                      border_style="bright_blue", box=box.DOUBLE,
-                      padding=(0, 4)),
             Text("Type a column number from 1 to 7 to drop a disc; "
                  "the most recent move is highlighted."),
         ]

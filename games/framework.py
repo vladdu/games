@@ -14,7 +14,9 @@ type (choosing the Players, playing again).
 from dataclasses import dataclass
 from typing import Any, Optional, Protocol
 
+from rich import box
 from rich.console import Console
+from rich.panel import Panel
 from rich.text import Text
 
 DRAW = "draw"
@@ -80,9 +82,9 @@ class GameType(Protocol):
         and, once a Side has won, the pieces that won it, both worked out
         from the state."""
 
-    def intro(self, matchup) -> list:
-        """Rich renderables shown once when a Session starts; ``matchup``
-        says who plays, e.g. "you vs. the computer"."""
+    def intro(self) -> list:
+        """Rich renderables shown once when a Session starts, under a
+        banner with the title and who plays."""
 
 
 # --------------------------------------------------------------------------
@@ -434,7 +436,7 @@ def run_menu(game_types, console=None, kinds=None, depth=None):
 
 
 def matchup(game_type, kinds, depth=None):
-    """Who plays in a Session, for the Game type's intro: "you vs. the
+    """Who plays in a Session, for the intro banner: "you vs. the
     (unbeatable) computer" by default, else e.g. "human vs. human"."""
     if kinds is not None and kinds[0] == kinds[1]:
         return "%s vs. %s" % kinds
@@ -453,7 +455,11 @@ def run(game_type, console=None, kinds=None, depth=None):
     Moves ahead, or the Game type's default Difficulty when it is None.
     "Play again" keeps the Game type and Players."""
     io = TerminalIO(game_type, console or Console(highlight=False))
-    for renderable in game_type.intro(matchup(game_type, kinds, depth)):
+    io.console.print(Panel.fit(
+        Text.assemble((game_type.title, "bold"), "\n",
+                      matchup(game_type, kinds, depth)),
+        border_style="bright_blue", box=box.DOUBLE, padding=(0, 4)))
+    for renderable in game_type.intro():
         io.console.print(renderable)
     io.console.print()
     try:
