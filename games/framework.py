@@ -82,9 +82,10 @@ class GameType(Protocol):
         and, once a Side has won, the pieces that won it, both worked out
         from the state."""
 
-    def intro(self) -> list:
+    def intro(self, against_computer) -> list:
         """Rich renderables shown once when a Session starts, under a
-        banner with the title and who plays."""
+        banner with the title and who plays. ``against_computer`` is True
+        when one human plays the computer."""
 
 
 # --------------------------------------------------------------------------
@@ -435,10 +436,16 @@ def run_menu(game_types, console=None, kinds=None, depth=None):
     return run(game_type, console, kinds, depth)
 
 
+def against_computer(kinds):
+    """True when ``kinds`` (None: the default) has one human play the
+    computer."""
+    return kinds is None or kinds[0] != kinds[1]
+
+
 def matchup(game_type, kinds, depth=None):
     """Who plays in a Session, for the intro banner: "you vs. the
     (unbeatable) computer" by default, else e.g. "human vs. human"."""
-    if kinds is not None and kinds[0] == kinds[1]:
+    if not against_computer(kinds):
         return "%s vs. %s" % kinds
     if depth is None:
         depth = game_type.default_depth
@@ -459,7 +466,7 @@ def run(game_type, console=None, kinds=None, depth=None):
         Text.assemble((game_type.title, "bold"), "\n",
                       matchup(game_type, kinds, depth)),
         border_style="bright_blue", box=box.DOUBLE, padding=(0, 4)))
-    for renderable in game_type.intro():
+    for renderable in game_type.intro(against_computer(kinds)):
         io.console.print(renderable)
     io.console.print()
     try:

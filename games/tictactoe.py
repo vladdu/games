@@ -229,10 +229,12 @@ class TicTacToe:
     def render(self, state):
         return board_table(state)
 
-    def intro(self):
+    def intro(self, against_computer):
+        highlighted = ("the computer's last move" if against_computer
+                       else "the most recent move")
         return [
-            Text("Cells are numbered like this "
-                 "(the computer's last move is highlighted):"),
+            Text("Cells are numbered like this (%s is highlighted):"
+                 % highlighted),
             board_table(State()),
         ]
 

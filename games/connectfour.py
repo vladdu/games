@@ -272,7 +272,7 @@ class ConnectFour:
     def render(self, state):
         return board_table(state)
 
-    def intro(self):
+    def intro(self, against_computer):
         return [
             Text("Type a column number from 1 to 7 to drop a disc; "
                  "the most recent move is highlighted."),

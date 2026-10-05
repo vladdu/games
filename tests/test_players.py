@@ -142,6 +142,17 @@ class CommandLineTests(unittest.TestCase):
             self.assertIn(subtitle, result.stdout)
             self.assertNotIn("you vs.", result.stdout)
 
+    def test_tictactoe_intro_names_the_highlighted_move_for_the_pairing(self):
+        for kinds, wording in (
+                (("human", "computer"), "the computer's last move"),
+                (("computer", "human"), "the computer's last move"),
+                (("human", "human"), "the most recent move"),
+                (("computer", "computer"), "the most recent move")):
+            result = games("--game", "tictactoe", "--first", kinds[0],
+                           "--second", kinds[1], "--depth", "1", input="")
+            self.assertIn("Cells are numbered like this (%s is highlighted):"
+                          % wording, result.stdout, kinds)
+
     def test_computer_vs_computer_from_the_command_line(self):
         result = games("--game", "tictactoe", "--first", "computer",
                        "--second", "computer", input="n\n")
