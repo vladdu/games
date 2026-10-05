@@ -15,7 +15,6 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from games import framework
 from games.framework import DRAW
 
 COLUMNS = 7
@@ -35,11 +34,6 @@ class State:
 def new_state():
     """Return the empty board, Red to move."""
     return State()
-
-
-def other(side):
-    """Return the opponent of ``side``."""
-    return YELLOW if side == RED else RED
 
 
 def to_move(state):
@@ -291,8 +285,3 @@ class ConnectFour:
 
 
 GAME_TYPE = ConnectFour()
-
-
-def run():
-    """Play Connect Four sessions at the terminal until the human stops."""
-    return framework.run(GAME_TYPE)

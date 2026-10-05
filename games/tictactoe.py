@@ -21,7 +21,6 @@ from rich.panel import Panel
 from rich.table import Table
 from rich.text import Text
 
-from games import framework
 from games.framework import DRAW
 
 EMPTY = " "
@@ -262,8 +261,3 @@ def main(argv=None):
     minus ``--game``."""
     from games import cli  # cli imports the registry, which imports us
     return cli.main(argv, None, DESCRIPTION, GAME_TYPE)
-
-
-def run():
-    """Play tic-tac-toe sessions at the terminal until the human stops."""
-    return framework.run(GAME_TYPE)
