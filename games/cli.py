@@ -43,7 +43,7 @@ EPILOG = ("After each game you can play again (y/n) with the same game and "
           "Players. Press Ctrl+C or Ctrl+D to quit at any time.")
 
 
-def depth(text):
+def depth_arg(text):
     """argparse type for ``--depth``: a whole number of Moves, 1 or more."""
     try:
         value = int(text)
@@ -55,7 +55,7 @@ def depth(text):
     return value
 
 
-def parser(prog, description, game_type=None):
+def make_parser(prog, description, game_type=None):
     """The argument parser; with ``game_type`` there is no ``--game``."""
     game_types = GAME_TYPES.values() if game_type is None else [game_type]
     parser = argparse.ArgumentParser(
@@ -70,7 +70,7 @@ def parser(prog, description, game_type=None):
                         help="who plays the Side that moves first")
     parser.add_argument("--second", choices=KINDS,
                         help="who plays the Side that moves second")
-    parser.add_argument("--depth", type=depth, metavar="N",
+    parser.add_argument("--depth", type=depth_arg, metavar="N",
                         help="how many moves ahead the computer looks "
                              "(1 or more; default: the game's own)")
     return parser
@@ -91,7 +91,7 @@ def main(argv, prog, description=None, game_type=None):
     defaults to one naming every registered Game type."""
     if description is None:
         description = games_help(GAME_TYPES.values())
-    args = parser(prog, description, game_type).parse_args(argv)
+    args = make_parser(prog, description, game_type).parse_args(argv)
     kinds = player_kinds(args.first, args.second)
     if game_type is None and args.game is not None:
         game_type = GAME_TYPES[args.game]
