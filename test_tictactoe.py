@@ -8,7 +8,8 @@ from rich.console import Console
 from rich.style import Style
 
 import tictactoe as t
-from tictactoe import X, O, EMPTY, DRAW
+from tictactoe import (X, O, EMPTY, DRAW, OUT_OF_RANGE, TAKEN, Started,
+                       Moved, MoveRejected, GameOver)
 
 
 def board_from(s):
@@ -66,15 +67,92 @@ class BestMoveTests(unittest.TestCase):
 
 
 class ParseMoveTests(unittest.TestCase):
-    def test_valid(self):
-        self.assertEqual(t.parse_move(" 5 \n", t.new_board()), (4, None))
+    def test_number(self):
+        self.assertEqual(t.parse_move(" 5 \n"), (4, None))
 
-    def test_invalid(self):
-        board = board_from("X........")
-        for text in ("", "abc", "0", "10", "-1", "1"):
-            index, error = t.parse_move(text, board)
+    def test_range_is_left_to_the_game(self):
+        self.assertEqual(t.parse_move("10"), (9, None))
+        self.assertEqual(t.parse_move("-1"), (-2, None))
+
+    def test_not_a_number(self):
+        for text in ("", "abc", "1.5"):
+            index, error = t.parse_move(text)
             self.assertIsNone(index, text)
             self.assertTrue(error, text)
+
+
+class ScriptedIO:
+    """PlayerIO adapter for tests: plays the given moves (indices) and
+    records every Game event. Raises EOFError when it runs out of moves,
+    like a terminal reaching end of input."""
+
+    def __init__(self, first, moves):
+        self.first = first
+        self.moves = list(moves)
+        self.events = []
+
+    def wants_first(self):
+        return self.first
+
+    def choose_move(self, board):
+        if not self.moves:
+            raise EOFError
+        return self.moves.pop(0)
+
+    def show(self, event):
+        self.events.append(event)
+
+
+class GameTests(unittest.TestCase):
+    def test_human_first_draw(self):
+        io = ScriptedIO(True, [4, 1, 3, 8, 6])
+        self.assertEqual(t.play_game(io), DRAW)
+        self.assertEqual(io.events, [
+            Started(X, O),
+            Moved(X, 4, board_from("....X...."), None),
+            Moved(O, 0, board_from("O...X...."), 0),
+            Moved(X, 1, board_from("OX..X...."), 0),
+            Moved(O, 7, board_from("OX..X..O."), 7),
+            Moved(X, 3, board_from("OX.XX..O."), 7),
+            Moved(O, 5, board_from("OX.XXO.O."), 5),
+            Moved(X, 8, board_from("OX.XXO.OX"), 5),
+            Moved(O, 2, board_from("OXOXXO.OX"), 2),
+            Moved(X, 6, board_from("OXOXXOXOX"), 2),
+            GameOver(DRAW, board_from("OXOXXOXOX"), None),
+        ])
+
+    def test_computer_first_win(self):
+        io = ScriptedIO(False, [1, 2])
+        self.assertEqual(t.play_game(io), X)
+        self.assertEqual(io.events, [
+            Started(O, X),
+            Moved(X, 0, board_from("X........"), 0),
+            Moved(O, 1, board_from("XO......."), 0),
+            Moved(X, 3, board_from("XO.X....."), 3),
+            Moved(O, 2, board_from("XOOX....."), 3),
+            Moved(X, 6, board_from("XOOX..X.."), 6),
+            GameOver(X, board_from("XOOX..X.."), (0, 3, 6)),
+        ])
+
+    def test_illegal_moves_rejected_and_asked_again(self):
+        io = ScriptedIO(True, [9, -1, 4, 4, 0, 1])
+        with self.assertRaises(EOFError):
+            t.play_game(io)
+        self.assertEqual(io.events[1:7], [
+            MoveRejected(9, OUT_OF_RANGE),
+            MoveRejected(-1, OUT_OF_RANGE),
+            Moved(X, 4, board_from("....X...."), None),
+            Moved(O, 0, board_from("O...X...."), 0),
+            MoveRejected(4, TAKEN),
+            MoveRejected(0, TAKEN),
+        ])
+        self.assertEqual(io.events[7], Moved(X, 1, board_from("OX..X...."), 0))
+
+    def test_quitting_propagates(self):
+        io = ScriptedIO(True, [])
+        with self.assertRaises(EOFError):
+            t.play_game(io)
+        self.assertEqual(io.events, [Started(X, O)])
 
 
 class NeverLosesTests(unittest.TestCase):
@@ -182,14 +260,19 @@ class RenderingTests(unittest.TestCase):
         self.assertEqual(t.player_text(O).style, "bold magenta")
 
 
-class CommandLineTests(unittest.TestCase):
-    SCRIPT = os.path.join(os.path.dirname(os.path.abspath(__file__)),
-                          "tictactoe.py")
+HERE = os.path.dirname(os.path.abspath(__file__))
 
-    def _run(self, *args):
+
+class CommandLineTests(unittest.TestCase):
+    SCRIPT = os.path.join(HERE, "tictactoe.py")
+
+    def _run(self, *args, input=""):
+        env = dict(os.environ, NO_COLOR="1", COLUMNS="80",
+                   PYTHONIOENCODING="utf-8")
+        env.pop("FORCE_COLOR", None)
         return subprocess.run([sys.executable, self.SCRIPT] + list(args),
-                              input="", capture_output=True, text=True,
-                              timeout=30)
+                              input=input, capture_output=True, text=True,
+                              encoding="utf-8", env=env, timeout=30)
 
     def test_help(self):
         for flag in ("--help", "-h"):
@@ -205,10 +288,17 @@ class CommandLineTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2)
         self.assertIn("usage:", result.stderr)
 
-    def test_no_arguments_starts_game(self):
-        result = self._run()
-        self.assertEqual(result.returncode, 0)
-        self.assertIn("Goodbye", result.stdout)
+    def test_golden_transcript(self):
+        # Two games: the human goes first (with every kind of bad input) and
+        # draws, then goes second and loses. golden_transcript.txt was
+        # recorded from the game before the Game / Terminal I/O split.
+        moves = ["y", "abc", "10", "5", "5", "2", "4", "9", "7",
+                 "maybe", "y", "n", "2", "3", "n"]
+        result = self._run(input="\n".join(moves) + "\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        with open(os.path.join(HERE, "golden_transcript.txt"),
+                  encoding="utf-8") as f:
+            self.assertEqual(result.stdout, f.read())
 
 
 if __name__ == "__main__":

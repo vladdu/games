@@ -69,3 +69,11 @@ glyphs and cell styles), the AI taking immediate wins
 and blocking immediate losses, and an exhaustive search over every possible
 human move sequence (with the AI playing first and second) checking that the
 AI never loses.
+
+Whole games are tested in-process: the game talks to the human only through a
+small Player I/O interface, so the tests play it with a scripted adapter and
+check the game events (moves, rejected moves, the result and winning line).
+A golden-transcript test pipes a scripted session through the real program and
+compares its output with `golden_transcript.txt`; if you change the terminal
+output on purpose, regenerate that file with the input listed in the test.
+Domain terms are defined in [GLOSSARY.md](GLOSSARY.md).
