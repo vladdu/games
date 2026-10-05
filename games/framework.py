@@ -297,6 +297,38 @@ def choose_players(game_type, io):
     return (computer, Human())
 
 
+def choose_game_type(game_types, console):
+    """Session setup: the startup menu. Lists ``game_types`` by title and
+    asks for one by number until the answer is valid. Raises EOFError or
+    KeyboardInterrupt if the human quits."""
+    game_types = list(game_types)
+    console.print("Choose a game:")
+    for number, game_type in enumerate(game_types, 1):
+        console.print("  %d. %s" % (number, game_type.title))
+    console.print()
+    while True:
+        answer = console.input("[bold yellow]Game (1-%d):[/] "
+                               % len(game_types)).strip()
+        if answer.isdigit() and 1 <= int(answer) <= len(game_types):
+            console.print()
+            return game_types[int(answer) - 1]
+        console.print(Text("Please enter a number from 1 to %d."
+                           % len(game_types), style="red"))
+
+
+def run_menu(game_types, console=None):
+    """Ask for a Game type with the startup menu, then play Games of it at
+    the terminal until the human stops."""
+    console = console or Console(highlight=False)
+    try:
+        game_type = choose_game_type(game_types, console)
+    except (EOFError, KeyboardInterrupt):
+        console.print()
+        console.print(Text.from_markup("[bold]Goodbye![/]"))
+        return 0
+    return run(game_type, console)
+
+
 def run(game_type, console=None):
     """Play Games of ``game_type`` at the terminal until the human stops."""
     io = TerminalIO(game_type, console or Console(highlight=False))
