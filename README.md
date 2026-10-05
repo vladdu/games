@@ -20,7 +20,19 @@ pip install -r requirements.txt
 python3 -m games
 ```
 
-This plays tic-tac-toe. Choose the Game type with `--game`:
+This starts with a menu of the Game types:
+
+```
+Choose a game:
+  1. Tic-tac-toe
+  2. Connect Four
+
+Game (1-2):
+```
+
+Type a number to pick one; anything else is refused and you are asked again,
+and Ctrl+C or Ctrl+D quits. "Play again" after each game plays the same Game
+type. To skip the menu, name the Game type with `--game`:
 
 ```sh
 python3 -m games --game tictactoe
@@ -75,7 +87,7 @@ Press Ctrl+C or Ctrl+D to quit at any time.
 Input comes from stdin, so the game can be scripted:
 
 ```sh
-printf 'y\n5\n8\n4\n3\n1\nn\n' | python3 -m games
+printf '1\ny\n5\n8\n4\n3\n1\nn\n' | python3 -m games
 ```
 
 ## Connect Four
@@ -130,9 +142,13 @@ plays through the one Game loop in `games/framework.py`, and
 pass (random playouts end with a result, legal moves are accepted, rejected
 moves are refused with a reason, typed moves parse back to the same move).
 The tests live in `tests/`. A golden-transcript test pipes a scripted session
-through the real program (both `python3 tictactoe.py` and `python3 -m games`)
-and compares its output with `golden_transcript.txt`; if you change the terminal
-output on purpose, regenerate that file with the input listed in the test.
+through the real program (both `python3 tictactoe.py` and
+`python3 -m games --game tictactoe`) and compares its output with
+`golden_transcript.txt`; if you change the terminal output on purpose,
+regenerate that file with the input listed in the test. The startup menu has
+its own golden transcript, `golden_menu_transcript.txt` (tests in
+`tests/test_menu.py`): the menu with some refused choices, then the same
+tic-tac-toe session.
 The Connect Four tests (`tests/test_connectfour.py`) cover the rules, whole
 Games played with a scripted Player I/O (including refused moves), the
 computer taking a win and blocking one from set-up positions, the board
