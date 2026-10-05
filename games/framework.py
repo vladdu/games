@@ -146,6 +146,11 @@ class Human:
     """A human Player: types Moves through the Player I/O, and is asked
     again while the text is not a Move."""
     kind = "human"
+    is_human = True
+
+    def describe(self):
+        """The kind of Player, for the intro line."""
+        return self.kind
 
     def choose_move(self, game_type, state, io):
         side = game_type.to_move(state)
@@ -161,17 +166,15 @@ class Computer:
     """The computer, looking ``depth`` Moves ahead (None: unlimited)."""
     depth: Optional[int] = None
     kind = "computer"
+    is_human = False
+
+    def describe(self):
+        """The kind of Player and its Difficulty, for the intro line."""
+        return "computer (%s)" % ("full depth" if self.depth is None
+                                  else "depth %d" % self.depth)
 
     def choose_move(self, game_type, state, io):
         return best_move(game_type, state, self.depth)
-
-
-def describe(player):
-    """The kind of Player, e.g. "human" or "computer (depth 4)"."""
-    if isinstance(player, Computer):
-        return "computer (%s)" % ("full depth" if player.depth is None
-                                  else "depth %d" % player.depth)
-    return player.kind
 
 
 # --------------------------------------------------------------------------
@@ -322,9 +325,9 @@ class TerminalIO:
         if isinstance(event, Started):
             self._players = dict(zip(game_type.sides, event.players))
             if self._one_human():
-                self.say("You are ", self.side_text(self._side_of(Human)),
+                self.say("You are ", self.side_text(self._side_of(human=True)),
                          ", the computer is ",
-                         self.side_text(self._side_of(Computer)), ". ",
+                         self.side_text(self._side_of(human=False)), ". ",
                          self.side_text(game_type.sides[0]),
                          " moves first.")
             else:
@@ -332,14 +335,14 @@ class TerminalIO:
                 for side, player in self._players.items():
                     if parts:
                         parts.append(", ")
-                    parts += [self.side_text(side), ": " + describe(player)]
+                    parts += [self.side_text(side), ": " + player.describe()]
                 self.say(*parts, ". ", self.side_text(game_type.sides[0]),
                          " moves first.")
             self.console.print()
             self._pending_state = event.state
         elif isinstance(event, Moved):
             self._draw_pending_board()
-            if isinstance(self._players[event.side], Computer):
+            if not self._players[event.side].is_human:
                 self.say("Computer (", self.side_text(event.side),
                          ") plays %s." % game_type.describe_move(event.move))
             self.console.print()
@@ -356,8 +359,8 @@ class TerminalIO:
             elif not self._one_human():
                 self.say(Text.assemble(
                     self.side_text(event.result), " wins!", style="bold"))
-            elif isinstance(self._players[event.result], Human):
-                computer = self._players[self._side_of(Computer)]
+            elif self._players[event.result].is_human:
+                computer = self._players[self._side_of(human=False)]
                 suffix = (" (This should not happen...)"
                           if game_type.unbeatable(computer.depth) else "")
                 self.say("[bold green]You win!%s[/]" % suffix)
@@ -367,11 +370,12 @@ class TerminalIO:
     def _one_human(self):
         """True when exactly one Side is played by a human, who is then
         addressed as "you"."""
-        return sum(isinstance(p, Human) for p in self._players.values()) == 1
+        return sum(p.is_human for p in self._players.values()) == 1
 
-    def _side_of(self, kind):
-        """The one Side played by a Player of ``kind``."""
-        (side,) = [s for s, p in self._players.items() if isinstance(p, kind)]
+    def _side_of(self, human):
+        """The one Side played by a human (or by the computer)."""
+        (side,) = [s for s, p in self._players.items()
+                   if p.is_human == human]
         return side
 
     def _draw_pending_board(self):
