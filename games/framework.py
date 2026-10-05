@@ -38,7 +38,9 @@ class GameType(Protocol):
         """The Side to move in a state that has no Result yet."""
 
     def legal_moves(self, state) -> list:
-        """The legal Moves, or [] once the Game has a Result."""
+        """The legal Moves, or [] once the Game has a Result. The computer
+        searches them in this order and, among equally good Moves, plays
+        the first, so put the likeliest good Moves first."""
 
     def move_problem(self, state, move) -> Optional[str]:
         """Why ``move`` is rejected in ``state``, or None if it is legal."""
@@ -50,11 +52,9 @@ class GameType(Protocol):
         """A Side for a win, DRAW, or None while the Game is in progress."""
 
     def heuristic(self, state, side) -> float:
-        """Score of a state in progress from ``side``'s point of view."""
-
-    def best_move(self, state, depth):
-        """The computer's Move at Difficulty ``depth`` (until the shared
-        search lands, each Game type searches for itself)."""
+        """Score of a state in progress from ``side``'s point of view, for
+        the computer's search where it stops before the end of the Game.
+        It must stay well inside +/- ``WIN_SCORE / 2``."""
 
     def unbeatable(self, depth) -> bool:
         """True if the computer cannot lose at Difficulty ``depth``."""
@@ -157,7 +157,68 @@ class Computer:
     kind = "computer"
 
     def choose_move(self, game_type, state, io):
-        return game_type.best_move(state, self.depth)
+        return best_move(game_type, state, self.depth)
+
+
+# --------------------------------------------------------------------------
+# The computer's search (ADR 0001)
+# --------------------------------------------------------------------------
+
+# A win ``ply`` Moves from now scores WIN_SCORE - ply and a loss
+# ply - WIN_SCORE, so faster wins and slower losses score higher.
+WIN_SCORE = 1_000_000
+_INFINITY = 2 * WIN_SCORE
+
+
+def best_move(game_type, state, depth=None):
+    """The Move the Side to move in ``state`` should make, looking ``depth``
+    Moves ahead (None: to the end of the Game), or None if the Game is
+    over. Depth-limited alpha-beta search; among equally good Moves the
+    first in ``legal_moves`` order is chosen, so the choice is
+    deterministic."""
+    if game_type.result(state) is not None:
+        return None
+    me = game_type.to_move(state)
+    choice = None
+    alpha = -_INFINITY
+    for move in game_type.legal_moves(state):
+        score = _score(game_type, game_type.apply_move(state, move), me,
+                       None if depth is None else depth - 1, 1,
+                       alpha, _INFINITY)
+        if choice is None or score > alpha:
+            # A later Move scoring no better than alpha may return a bound
+            # rather than its exact score, but never one above alpha.
+            choice, alpha = move, max(alpha, score)
+    return choice
+
+
+def _score(game_type, state, me, depth, ply, alpha, beta):
+    """Alpha-beta score of ``state`` from ``me``'s point of view, ``ply``
+    Moves from the root and looking ``depth`` more Moves ahead (None:
+    unlimited)."""
+    outcome = game_type.result(state)
+    if outcome is not None:
+        if outcome == DRAW:
+            return 0
+        return WIN_SCORE - ply if outcome == me else ply - WIN_SCORE
+    if depth == 0:
+        return game_type.heuristic(state, me)
+
+    maximizing = game_type.to_move(state) == me
+    best = -_INFINITY if maximizing else _INFINITY
+    next_depth = None if depth is None else depth - 1
+    for move in game_type.legal_moves(state):
+        score = _score(game_type, game_type.apply_move(state, move), me,
+                       next_depth, ply + 1, alpha, beta)
+        if maximizing:
+            best = max(best, score)
+            alpha = max(alpha, best)
+        else:
+            best = min(best, score)
+            beta = min(beta, best)
+        if alpha >= beta:
+            break
+    return best
 
 
 # --------------------------------------------------------------------------

@@ -55,11 +55,16 @@ def disc_at(state, column, row):
     return discs[row] if row < len(discs) else None
 
 
+# Legal Moves are listed centre first: the computer's search tries them in
+# this order, which prunes more, and among equally good Moves plays the first.
+MOVE_ORDER = (3, 2, 4, 1, 5, 0, 6)
+
+
 def legal_moves(state):
-    """Return the columns (0-6) that still have room, left to right."""
+    """Return the columns (0-6) that still have room, centre first."""
     if _find_four(state) is not None:
         return []
-    return [c for c in range(COLUMNS) if len(state.columns[c]) < ROWS]
+    return [c for c in MOVE_ORDER if len(state.columns[c]) < ROWS]
 
 
 def apply_move(state, column):
@@ -132,14 +137,10 @@ def move_problem(state, column):
 
 
 # --------------------------------------------------------------------------
-# Computer opponent: depth-limited alpha-beta search
+# Computer opponent: the heuristic for the shared search
 # --------------------------------------------------------------------------
 
 DEFAULT_DEPTH = 6
-WIN_SCORE = 1_000_000
-# Columns are searched centre first, which prunes more; among equally good
-# Moves the first one in this order wins, so the choice is deterministic.
-SEARCH_ORDER = (3, 2, 4, 1, 5, 0, 6)
 # Score of a window of four holding n discs of one Side and none of the
 # other.
 WINDOW_SCORES = {1: 1, 2: 10, 3: 50}
@@ -163,59 +164,6 @@ def heuristic(state, side):
         elif theirs and not mine:
             score -= WINDOW_SCORES[theirs]
     return score
-
-
-def _search(state, me, depth, ply, alpha, beta):
-    """Alpha-beta score of ``state`` from ``me``'s point of view, looking
-    ``depth`` more Moves ahead. Wins score higher the sooner they come
-    (``ply`` Moves from the root), and losses higher the later."""
-    outcome = result(state)
-    if outcome == me:
-        return WIN_SCORE - ply
-    if outcome == DRAW:
-        return 0
-    if outcome is not None:
-        return ply - WIN_SCORE
-    if depth == 0:
-        return heuristic(state, me)
-
-    maximizing = to_move(state) == me
-    best = -2 * WIN_SCORE if maximizing else 2 * WIN_SCORE
-    for column in SEARCH_ORDER:
-        if move_problem(state, column) is not None:
-            continue
-        score = _search(apply_move(state, column), me, depth - 1, ply + 1,
-                        alpha, beta)
-        if maximizing:
-            best = max(best, score)
-            alpha = max(alpha, best)
-        else:
-            best = min(best, score)
-            beta = min(beta, best)
-        if alpha >= beta:
-            break
-    return best
-
-
-def best_move(state, depth=DEFAULT_DEPTH):
-    """Return the best column (0-6) for the Side to move, searching
-    ``depth`` Moves ahead, or None if the Game is over."""
-    if result(state) is not None:
-        return None
-    me = to_move(state)
-    best_score = None
-    choice = None
-    alpha = -2 * WIN_SCORE
-    for column in SEARCH_ORDER:
-        if move_problem(state, column) is not None:
-            continue
-        score = _search(apply_move(state, column), me, depth - 1, 1,
-                        alpha, 2 * WIN_SCORE)
-        if best_score is None or score > best_score:
-            best_score = score
-            choice = column
-            alpha = max(alpha, score)
-    return choice
 
 
 # --------------------------------------------------------------------------
@@ -303,9 +251,6 @@ class ConnectFour:
 
     def heuristic(self, state, side):
         return heuristic(state, side)
-
-    def best_move(self, state, depth):
-        return best_move(state, DEFAULT_DEPTH if depth is None else depth)
 
     def unbeatable(self, depth):
         return False

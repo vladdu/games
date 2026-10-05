@@ -15,7 +15,6 @@ highlighted, and a Winning line gets a green background.
 
 import argparse
 from dataclasses import dataclass
-from functools import lru_cache
 from typing import Optional
 
 from rich import box
@@ -102,59 +101,6 @@ def apply_move(state, index):
     if problem is not None:
         raise ValueError("cell index %r is %s" % (index, problem))
     return State(_place(state.cells, index), index)
-
-
-# --------------------------------------------------------------------------
-# Computer opponent: full minimax (replaced by the shared search in 04)
-# --------------------------------------------------------------------------
-
-@lru_cache(maxsize=None)
-def _minimax(cells, me, depth, alpha, beta):
-    """Score ``cells`` from ``me``'s perspective.
-
-    Depth-aware: a win scores ``10 - depth`` (faster wins are better) and a
-    loss scores ``depth - 10`` (slower losses are better). Draw is 0.
-    """
-    result = _result(cells)
-    if result == me:
-        return 10 - depth
-    if result == DRAW:
-        return 0
-    if result is not None:
-        return depth - 10
-
-    maximizing = _to_move(cells) == me
-    best = -100 if maximizing else 100
-    for move in _empty_cells(cells):
-        score = _minimax(_place(cells, move), me, depth + 1, alpha, beta)
-        if maximizing:
-            best = max(best, score)
-            alpha = max(alpha, best)
-        else:
-            best = min(best, score)
-            beta = min(beta, best)
-        if alpha >= beta:
-            break
-    return best
-
-
-def best_move(state):
-    """Return the best Cell index for the Side to move, or None if the Game
-    is over. Full minimax, so the Move never loses; ties go to the lowest
-    index."""
-    cells = state.cells
-    if _result(cells) is not None:
-        return None
-    player = _to_move(cells)
-    best_score = -100
-    choice = None
-    for move in _empty_cells(cells):
-        # Full window per root child so scores are exact and comparable.
-        score = _minimax(_place(cells, move), player, 1, -100, 100)
-        if score > best_score:
-            best_score = score
-            choice = move
-    return choice
 
 
 # --------------------------------------------------------------------------
@@ -259,9 +205,6 @@ class TicTacToe:
     def heuristic(self, state, side):
         # Tic-tac-toe is always searched to the end of the Game.
         return 0
-
-    def best_move(self, state, depth):
-        return best_move(state)
 
     def unbeatable(self, depth):
         return depth is None
