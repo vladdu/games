@@ -74,8 +74,7 @@ def computer_move(game_type, depth=None, state=()):
 class SharedSearchTests(unittest.TestCase):
     def test_plays_any_game_type_to_a_win(self):
         # Only "good" wins for A; B's reply to "bad" wins for B.
-        game = TreeGame({"bad": {"x": B, "y": A},
-                         "good": {"x": A, "y": A}})
+        game = TreeGame({"bad": {"x": B, "y": A}, "good": {"x": A, "y": A}})
         self.assertEqual(computer_move(game), "good")
 
     def test_prefers_a_faster_win(self):
@@ -83,8 +82,7 @@ class SharedSearchTests(unittest.TestCase):
         self.assertEqual(computer_move(game), "fast")
 
     def test_prefers_a_slower_loss(self):
-        game = TreeGame({"quick": {"x": B},
-                         "late": {"x": {"y": {"z": B}}}})
+        game = TreeGame({"quick": {"x": B}, "late": {"x": {"y": {"z": B}}}})
         self.assertEqual(computer_move(game), "late")
 
     def test_prefers_a_draw_to_a_loss(self):

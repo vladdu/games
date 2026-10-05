@@ -49,21 +49,52 @@ class ScriptedIO:
 # and draws, then goes second and loses. golden_transcript.txt was first
 # recorded before the Game / Terminal I/O split, and re-recorded when cells
 # were renumbered in keypad order.
-GOLDEN_INPUT = "\n".join(["y", "abc", "10", "5", "5", "8", "4", "3", "1",
-                          "maybe", "y", "n", "8", "9", "n"]) + "\n"
+GOLDEN_INPUT = (
+    "\n".join(
+        [
+            "y",
+            "abc",
+            "10",
+            "5",
+            "5",
+            "8",
+            "4",
+            "3",
+            "1",
+            "maybe",
+            "y",
+            "n",
+            "8",
+            "9",
+            "n",
+        ]
+    )
+    + "\n"
+)
+
+
+def script(name):
+    """The path of the installed console script ``name`` (see
+    pyproject.toml), next to the running interpreter."""
+    return os.path.join(os.path.dirname(sys.executable), name)
 
 
 def run_program(command, *args, input=""):
     """Run ``command`` (a list) from the project root with plain output."""
-    env = dict(os.environ, NO_COLOR="1", COLUMNS="80",
-               PYTHONIOENCODING="utf-8")
+    env = dict(os.environ, NO_COLOR="1", COLUMNS="80", PYTHONIOENCODING="utf-8")
     env.pop("FORCE_COLOR", None)
-    return subprocess.run([sys.executable] + command + list(args),
-                          input=input, capture_output=True, text=True,
-                          encoding="utf-8", env=env, cwd=ROOT, timeout=30)
+    return subprocess.run(
+        [sys.executable] + command + list(args),
+        input=input,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        env=env,
+        cwd=ROOT,
+        timeout=30,
+    )
 
 
 def golden_transcript():
-    with open(os.path.join(ROOT, "golden_transcript.txt"),
-              encoding="utf-8") as f:
+    with open(os.path.join(ROOT, "golden_transcript.txt"), encoding="utf-8") as f:
         return f.read()

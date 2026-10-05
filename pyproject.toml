@@ -1,0 +1,31 @@
+[project]
+name = "games"
+version = "0.1.0"
+description = "Terminal board games: tic-tac-toe and Connect Four."
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = ["rich>=13"]
+
+[project.scripts]
+games = "games.cli:run"
+tictactoe = "games.tictactoe:main"
+
+[dependency-groups]
+dev = ["ruff>=0.6"]
+
+[build-system]
+requires = ["uv_build>=0.8,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-name = "games"
+module-root = ""
+
+[tool.ruff]
+line-length = 88
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+# The code formats strings with %, and the tic-tac-toe Side is called O.
+ignore = ["UP031", "E741"]

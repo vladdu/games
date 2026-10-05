@@ -12,7 +12,7 @@ type (choosing the Players, playing again).
 """
 
 from dataclasses import dataclass
-from typing import Any, Optional, Protocol
+from typing import Any, Protocol
 
 from rich import box
 from rich.console import Console
@@ -25,11 +25,11 @@ DRAW = "draw"
 class GameType(Protocol):
     """What the framework needs from a Game type."""
 
-    name: str            # for the command line, e.g. "connect-four"
-    title: str           # for people, e.g. "Connect Four"
-    summary: str         # for --help, e.g. "Connect Four on a 7x6 board; ..."
-    sides: tuple         # the Sides in turn order, by display name
-    default_depth: Optional[int]  # default Difficulty; None is unlimited
+    name: str  # for the command line, e.g. "connect-four"
+    title: str  # for people, e.g. "Connect Four"
+    summary: str  # for --help, e.g. "Connect Four on a 7x6 board; ..."
+    sides: tuple  # the Sides in turn order, by display name
+    default_depth: int | None  # default Difficulty; None is unlimited
 
     def side_style(self, side) -> str:
         """The rich style the Side is shown in."""
@@ -45,7 +45,7 @@ class GameType(Protocol):
         searches them in this order and, among equally good Moves, plays
         the first, so put the likeliest good Moves first."""
 
-    def move_problem(self, state, move) -> Optional[str]:
+    def move_problem(self, state, move) -> str | None:
         """Why ``move`` is rejected in ``state``, or None if it is legal."""
 
     def apply_move(self, state, move):
@@ -93,10 +93,12 @@ class GameType(Protocol):
 # Game events
 # --------------------------------------------------------------------------
 
+
 @dataclass(frozen=True)
 class Started:
     """The Game has started from ``state``; ``players`` holds the Player
     playing each Side, in the Game type's Side order."""
+
     players: tuple
     state: Any
 
@@ -104,6 +106,7 @@ class Started:
 @dataclass(frozen=True)
 class Moved:
     """``side`` made ``move``, giving ``state``."""
+
     side: Any
     move: Any
     state: Any
@@ -112,6 +115,7 @@ class Moved:
 @dataclass(frozen=True)
 class MoveRejected:
     """``move`` was refused for ``reason``; the Side will be asked again."""
+
     move: Any
     reason: str
 
@@ -119,6 +123,7 @@ class MoveRejected:
 @dataclass(frozen=True)
 class GameOver:
     """The Game ended with ``result`` (a Side or DRAW) on ``state``."""
+
     result: Any
     state: Any
 
@@ -126,6 +131,7 @@ class GameOver:
 # --------------------------------------------------------------------------
 # Players
 # --------------------------------------------------------------------------
+
 
 class PlayerIO(Protocol):
     """Everything a Game needs from human Players. Methods may raise
@@ -145,6 +151,7 @@ class PlayerIO(Protocol):
 class Human:
     """A human Player: types Moves through the Player I/O, and is asked
     again while the text is not a Move."""
+
     kind = "human"
     is_human = True
 
@@ -164,14 +171,16 @@ class Human:
 @dataclass(frozen=True)
 class Computer:
     """The computer, looking ``depth`` Moves ahead (None: unlimited)."""
-    depth: Optional[int] = None
+
+    depth: int | None = None
     kind = "computer"
     is_human = False
 
     def describe(self):
         """The kind of Player and its Difficulty, for the intro line."""
-        return "computer (%s)" % ("full depth" if self.depth is None
-                                  else "depth %d" % self.depth)
+        return "computer (%s)" % (
+            "full depth" if self.depth is None else "depth %d" % self.depth
+        )
 
     def choose_move(self, game_type, state, io):
         return best_move(game_type, state, self.depth)
@@ -199,9 +208,15 @@ def best_move(game_type, state, depth=None):
     choice = None
     alpha = -_INFINITY
     for move in game_type.legal_moves(state):
-        score = _score(game_type, game_type.apply_move(state, move), me,
-                       None if depth is None else depth - 1, 1,
-                       alpha, _INFINITY)
+        score = _score(
+            game_type,
+            game_type.apply_move(state, move),
+            me,
+            None if depth is None else depth - 1,
+            1,
+            alpha,
+            _INFINITY,
+        )
         if choice is None or score > alpha:
             # A later Move scoring no better than alpha may return a bound
             # rather than its exact score, but never one above alpha.
@@ -225,8 +240,15 @@ def _score(game_type, state, me, depth, ply, alpha, beta):
     best = -_INFINITY if maximizing else _INFINITY
     next_depth = None if depth is None else depth - 1
     for move in game_type.legal_moves(state):
-        score = _score(game_type, game_type.apply_move(state, move), me,
-                       next_depth, ply + 1, alpha, beta)
+        score = _score(
+            game_type,
+            game_type.apply_move(state, move),
+            me,
+            next_depth,
+            ply + 1,
+            alpha,
+            beta,
+        )
         if maximizing:
             best = max(best, score)
             alpha = max(alpha, best)
@@ -242,12 +264,13 @@ def _score(game_type, state, me, depth, ply, alpha, beta):
 # The Game loop
 # --------------------------------------------------------------------------
 
+
 def play_game(game_type, players, io, start=None):
     """Play one Game of ``game_type`` with ``players`` (one per Side, in
     Side order) from ``start`` (the initial state by default), reporting
     Game events to ``io``. Returns the Result."""
     players = tuple(players)
-    by_side = dict(zip(game_type.sides, players))
+    by_side = dict(zip(game_type.sides, players, strict=True))
     state = start if start is not None else game_type.initial_state()
     io.show(Started(players, state))
     while game_type.result(state) is None:
@@ -268,6 +291,7 @@ def play_game(game_type, players, io, start=None):
 # --------------------------------------------------------------------------
 # Terminal Player I/O
 # --------------------------------------------------------------------------
+
 
 class TerminalIO:
     """Player I/O for a human at a terminal, drawn with rich.
@@ -290,8 +314,7 @@ class TerminalIO:
         """Print a line made of strings (rich markup) and Text objects."""
         line = Text()
         for part in parts:
-            line.append(Text.from_markup(part) if isinstance(part, str)
-                        else part)
+            line.append(Text.from_markup(part) if isinstance(part, str) else part)
         self.console.print(line, style=style)
 
     def ask(self, prompt):
@@ -323,46 +346,58 @@ class TerminalIO:
     def show(self, event):
         game_type = self.game_type
         if isinstance(event, Started):
-            self._players = dict(zip(game_type.sides, event.players))
+            self._players = dict(zip(game_type.sides, event.players, strict=True))
             if self._one_human():
-                self.say("You are ", self.side_text(self._side_of(human=True)),
-                         ", the computer is ",
-                         self.side_text(self._side_of(human=False)), ". ",
-                         self.side_text(game_type.sides[0]),
-                         " moves first.")
+                self.say(
+                    "You are ",
+                    self.side_text(self._side_of(human=True)),
+                    ", the computer is ",
+                    self.side_text(self._side_of(human=False)),
+                    ". ",
+                    self.side_text(game_type.sides[0]),
+                    " moves first.",
+                )
             else:
                 parts = []
                 for side, player in self._players.items():
                     if parts:
                         parts.append(", ")
                     parts += [self.side_text(side), ": " + player.describe()]
-                self.say(*parts, ". ", self.side_text(game_type.sides[0]),
-                         " moves first.")
+                self.say(
+                    *parts, ". ", self.side_text(game_type.sides[0]), " moves first."
+                )
             self.console.print()
             self._pending_state = event.state
         elif isinstance(event, Moved):
             self._draw_pending_board()
             if not self._players[event.side].is_human:
-                self.say("Computer (", self.side_text(event.side),
-                         ") plays %s." % game_type.describe_move(event.move))
+                self.say(
+                    "Computer (",
+                    self.side_text(event.side),
+                    ") plays %s." % game_type.describe_move(event.move),
+                )
             self.console.print()
             self._pending_state = event.state
         elif isinstance(event, MoveRejected):
-            self.say(Text(game_type.rejection_message(event.move,
-                                                      event.reason),
-                          style="red"))
+            self.say(
+                Text(game_type.rejection_message(event.move, event.reason), style="red")
+            )
         elif isinstance(event, GameOver):
             self._pending_state = None
             self.console.print(game_type.render(event.state))
             if event.result == DRAW:
                 self.say("[bold yellow]It's a draw![/]")
             elif not self._one_human():
-                self.say(Text.assemble(
-                    self.side_text(event.result), " wins!", style="bold"))
+                self.say(
+                    Text.assemble(self.side_text(event.result), " wins!", style="bold")
+                )
             elif self._players[event.result].is_human:
                 computer = self._players[self._side_of(human=False)]
-                suffix = (" (This should not happen...)"
-                          if game_type.unbeatable(computer.depth) else "")
+                suffix = (
+                    " (This should not happen...)"
+                    if game_type.unbeatable(computer.depth)
+                    else ""
+                )
                 self.say("[bold green]You win!%s[/]" % suffix)
             else:
                 self.say("[bold red]The computer wins![/]")
@@ -374,8 +409,7 @@ class TerminalIO:
 
     def _side_of(self, human):
         """The one Side played by a human (or by the computer)."""
-        (side,) = [s for s, p in self._players.items()
-                   if p.is_human == human]
+        (side,) = [s for s, p in self._players.items() if p.is_human == human]
         return side
 
     def _draw_pending_board(self):
@@ -388,14 +422,14 @@ class TerminalIO:
 # Session
 # --------------------------------------------------------------------------
 
+
 def make_players(game_type, kinds, depth=None):
     """Session setup: one Player per Side from ``kinds`` ("human" or
     "computer", in Side order). The computer looks ``depth`` Moves ahead,
     or the Game type's default Difficulty when ``depth`` is None."""
     if depth is None:
         depth = game_type.default_depth
-    return tuple(Human() if kind == Human.kind else Computer(depth)
-                 for kind in kinds)
+    return tuple(Human() if kind == Human.kind else Computer(depth) for kind in kinds)
 
 
 def choose_players(game_type, io, depth=None):
@@ -419,13 +453,15 @@ def choose_game_type(game_types, console):
         console.print("  %d. %s" % (number, game_type.title))
     console.print()
     while True:
-        answer = console.input("[bold yellow]Game (1-%d):[/] "
-                               % len(game_types)).strip()
+        answer = console.input(
+            "[bold yellow]Game (1-%d):[/] " % len(game_types)
+        ).strip()
         if answer.isdigit() and 1 <= int(answer) <= len(game_types):
             console.print()
             return game_types[int(answer) - 1]
-        console.print(Text("Please enter a number from 1 to %d."
-                           % len(game_types), style="red"))
+        console.print(
+            Text("Please enter a number from 1 to %d." % len(game_types), style="red")
+        )
 
 
 def run_menu(game_types, console=None, kinds=None, depth=None):
@@ -454,7 +490,8 @@ def matchup(game_type, kinds, depth=None):
     if depth is None:
         depth = game_type.default_depth
     return "you vs. the %scomputer" % (
-        "unbeatable " if game_type.unbeatable(depth) else "")
+        "unbeatable " if game_type.unbeatable(depth) else ""
+    )
 
 
 def run(game_type, console=None, kinds=None, depth=None):
@@ -466,10 +503,16 @@ def run(game_type, console=None, kinds=None, depth=None):
     Moves ahead, or the Game type's default Difficulty when it is None.
     "Play again" keeps the Game type and Players."""
     io = TerminalIO(game_type, console or Console(highlight=False))
-    io.console.print(Panel.fit(
-        Text.assemble((game_type.title, "bold"), "\n",
-                      matchup(game_type, kinds, depth)),
-        border_style="bright_blue", box=box.DOUBLE, padding=(0, 4)))
+    io.console.print(
+        Panel.fit(
+            Text.assemble(
+                (game_type.title, "bold"), "\n", matchup(game_type, kinds, depth)
+            ),
+            border_style="bright_blue",
+            box=box.DOUBLE,
+            padding=(0, 4),
+        )
+    )
     for renderable in game_type.intro(against_computer(kinds)):
         io.console.print(renderable)
     io.console.print()

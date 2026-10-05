@@ -49,8 +49,7 @@ class SharedGameTypeTests(unittest.TestCase):
                         state = game_type.apply_move(state, rng.choice(moves))
                     result = game_type.result(state)
                     self.assertIsNotNone(result)
-                    self.assertIn(result,
-                                  list(game_type.sides) + ["draw"])
+                    self.assertIn(result, list(game_type.sides) + ["draw"])
                     self.assertEqual(game_type.legal_moves(state), [])
 
     def test_the_side_to_move_is_one_of_the_sides(self):
@@ -59,20 +58,17 @@ class SharedGameTypeTests(unittest.TestCase):
                 self.assertEqual(len(game_type.sides), 2)
                 for state in playouts(game_type):
                     if game_type.result(state) is None:
-                        self.assertIn(game_type.to_move(state),
-                                      game_type.sides)
+                        self.assertIn(game_type.to_move(state), game_type.sides)
 
     def test_legal_moves_are_accepted(self):
         for game_type in GAME_TYPES.values():
             with self.subTest(game_type.name):
                 for state in playouts(game_type):
                     for move in game_type.legal_moves(state):
-                        self.assertIsNone(
-                            game_type.move_problem(state, move), move)
+                        self.assertIsNone(game_type.move_problem(state, move), move)
                         after = game_type.apply_move(state, move)
                         if game_type.result(after) is None:
-                            self.assertIn(game_type.to_move(after),
-                                          game_type.sides)
+                            self.assertIn(game_type.to_move(after), game_type.sides)
 
     def test_rejected_moves_are_refused_with_a_reason(self):
         for game_type in GAME_TYPES.values():
@@ -88,8 +84,7 @@ class SharedGameTypeTests(unittest.TestCase):
                             continue
                         reason = game_type.move_problem(state, move)
                         self.assertIsNotNone(reason, text)
-                        self.assertTrue(
-                            game_type.rejection_message(move, reason))
+                        self.assertTrue(game_type.rejection_message(move, reason))
                         with self.assertRaises(ValueError):
                             game_type.apply_move(state, move)
                         refused += 1
@@ -101,8 +96,7 @@ class SharedGameTypeTests(unittest.TestCase):
                 for state in playouts(game_type):
                     for move in game_type.legal_moves(state):
                         text = game_type.move_text(move)
-                        self.assertEqual(game_type.parse_move(text),
-                                         (move, None))
+                        self.assertEqual(game_type.parse_move(text), (move, None))
 
     def test_unparseable_text_gives_an_error_message(self):
         for game_type in GAME_TYPES.values():
@@ -116,12 +110,15 @@ class SharedGameTypeTests(unittest.TestCase):
             with self.subTest(game_type.name):
                 state = game_type.initial_state()
                 for side in game_type.sides:
-                    self.assertIsInstance(game_type.heuristic(state, side),
-                                          (int, float))
+                    self.assertIsInstance(
+                        game_type.heuristic(state, side), (int, float)
+                    )
 
     def test_renders_every_state(self):
-        from rich.console import Console
         import io
+
+        from rich.console import Console
+
         for game_type in GAME_TYPES.values():
             with self.subTest(game_type.name):
                 console = Console(file=io.StringIO(), width=80)

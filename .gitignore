@@ -1,2 +1,4 @@
 .claude/run/
 __pycache__/
+.venv/
+dist/

@@ -18,8 +18,7 @@ MENU_GOLDEN_INPUT = "0\nabc\n3\n1\n" + GOLDEN_INPUT
 
 
 def menu_golden_transcript():
-    with open(os.path.join(ROOT, "golden_menu_transcript.txt"),
-              encoding="utf-8") as f:
+    with open(os.path.join(ROOT, "golden_menu_transcript.txt"), encoding="utf-8") as f:
         return f.read()
 
 
@@ -44,8 +43,7 @@ class MenuTests(unittest.TestCase):
     def test_refuses_invalid_choices_and_asks_again(self):
         result = menu(input="0\nabc\n3\n2\n")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(
-            result.stdout.count("Please enter a number from 1 to 2."), 3)
+        self.assertEqual(result.stdout.count("Please enter a number from 1 to 2."), 3)
         self.assertEqual(result.stdout.count("Game (1-2):"), 4)
         self.assertIn("you vs. the computer", result.stdout)
 
@@ -80,8 +78,7 @@ class MenuTests(unittest.TestCase):
     def test_golden_transcript_is_the_menu_then_tictactoe(self):
         # The menu path adds only the menu in front of the tic-tac-toe
         # golden session.
-        self.assertTrue(menu_golden_transcript().endswith(
-            golden_transcript()))
+        self.assertTrue(menu_golden_transcript().endswith(golden_transcript()))
 
     def test_help_describes_the_menu(self):
         result = run_program(["-m", "games"], "--help")
@@ -93,6 +90,7 @@ class MenuTests(unittest.TestCase):
     def test_help_describes_every_registered_game_type(self):
         """Adding a Game type to the registry is enough for --help to
         describe it."""
+
         class Checkers:
             name = "checkers"
             title = "Checkers"
@@ -101,14 +99,15 @@ class MenuTests(unittest.TestCase):
 
         out = io.StringIO()
         # Wide enough that argparse does not wrap inside "Tic-tac-toe".
-        with mock.patch.dict(GAME_TYPES, checkers=Checkers()), \
-                mock.patch.dict(os.environ, COLUMNS="500"), \
-                contextlib.redirect_stdout(out), \
-                self.assertRaises(SystemExit):
+        with (
+            mock.patch.dict(GAME_TYPES, checkers=Checkers()),
+            mock.patch.dict(os.environ, COLUMNS="500"),
+            contextlib.redirect_stdout(out),
+            self.assertRaises(SystemExit),
+        ):
             cli.main(["--help"], "python3 -m games")
         text = " ".join(out.getvalue().split())
-        self.assertIn("checkers (Checkers on an 8x8 board; jump to capture)",
-                      text)
+        self.assertIn("checkers (Checkers on an 8x8 board; jump to capture)", text)
         self.assertIn("tictactoe (Tic-tac-toe on a 3x3 grid", text)
         self.assertIn("connect-four (Connect Four on a 7x6 board", text)
 

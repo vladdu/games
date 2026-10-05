@@ -14,7 +14,6 @@ highlighted, and a Winning line gets a green background.
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 from rich import box
 from rich.table import Table
@@ -31,9 +30,14 @@ OUT_OF_RANGE = "out of range"
 TAKEN = "taken"
 
 WIN_LINES = (
-    (0, 1, 2), (3, 4, 5), (6, 7, 8),  # rows
-    (0, 3, 6), (1, 4, 7), (2, 5, 8),  # columns
-    (0, 4, 8), (2, 4, 6),             # diagonals
+    (0, 1, 2),
+    (3, 4, 5),
+    (6, 7, 8),  # rows
+    (0, 3, 6),
+    (1, 4, 7),
+    (2, 5, 8),  # columns
+    (0, 4, 8),
+    (2, 4, 6),  # diagonals
 )
 
 
@@ -41,13 +45,15 @@ WIN_LINES = (
 class State:
     """A tic-tac-toe position: the 9 ``cells`` and the index of the most
     recent Move, ``last_move``."""
+
     cells: tuple = (EMPTY,) * 9
-    last_move: Optional[int] = None
+    last_move: int | None = None
 
 
 # --------------------------------------------------------------------------
 # Rules (pure functions)
 # --------------------------------------------------------------------------
+
 
 def _to_move(cells):
     return X if cells.count(X) == cells.count(O) else O
@@ -134,8 +140,7 @@ def board_table(state):
         table.add_column(justify="center", vertical="middle", min_width=1)
     win_line = _find_line(state.cells)
     for r in range(3):
-        table.add_row(*(_cell_text(state, r * 3 + c, win_line)
-                        for c in range(3)))
+        table.add_row(*(_cell_text(state, r * 3 + c, win_line) for c in range(3)))
     return table
 
 
@@ -154,8 +159,10 @@ class TicTacToe:
 
     name = "tictactoe"
     title = "Tic-tac-toe"
-    summary = ("Tic-tac-toe on a 3x3 grid; enter a cell number 1-9, "
-               "numbered like a numeric keypad")
+    summary = (
+        "Tic-tac-toe on a 3x3 grid; enter a cell number 1-9, "
+        "numbered like a numeric keypad"
+    )
     sides = (X, O)
     default_depth = None  # unlimited: the computer is unbeatable
 
@@ -220,11 +227,11 @@ class TicTacToe:
         return board_table(state)
 
     def intro(self, against_computer):
-        highlighted = ("the computer's last move" if against_computer
-                       else "the most recent move")
+        highlighted = (
+            "the computer's last move" if against_computer else "the most recent move"
+        )
         return [
-            Text("Cells are numbered like this (%s is highlighted):"
-                 % highlighted),
+            Text("Cells are numbered like this (%s is highlighted):" % highlighted),
             board_table(State()),
         ]
 
@@ -240,11 +247,13 @@ DESCRIPTION = (
     "Play tic-tac-toe in the terminal, by default against an unbeatable "
     "computer. X always moves first; enter a cell number 1-9 to move. "
     "Cells are numbered like a numeric keypad, with 7 8 9 on the top row "
-    "and 1 2 3 on the bottom.")
+    "and 1 2 3 on the bottom."
+)
 
 
 def main(argv=None):
-    """``python3 tictactoe.py``: tic-tac-toe with the games command line,
+    """The ``tictactoe`` console script: tic-tac-toe with the games command line,
     minus ``--game``."""
     from games import cli  # cli imports the registry, which imports us
+
     return cli.main(argv, None, DESCRIPTION, GAME_TYPE)

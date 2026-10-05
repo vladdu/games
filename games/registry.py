@@ -4,5 +4,7 @@ its ``GAME_TYPE`` here."""
 
 from games import connectfour, tictactoe
 
-GAME_TYPES = {game_type.name: game_type
-              for game_type in (tictactoe.GAME_TYPE, connectfour.GAME_TYPE)}
+GAME_TYPES = {
+    game_type.name: game_type
+    for game_type in (tictactoe.GAME_TYPE, connectfour.GAME_TYPE)
+}

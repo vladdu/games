@@ -6,11 +6,19 @@ from rich.style import Style
 
 import games.connectfour as c4
 from games import framework
-from games.connectfour import FULL, GAME_TYPE as game, OUT_OF_RANGE, RED, YELLOW
-from games.framework import (DRAW, Computer, GameOver, Human, Moved,
-                             MoveRejected, Started, play_game)
-from tests.support import (GOLDEN_INPUT, ScriptedIO, golden_transcript,
-                           run_program)
+from games.connectfour import FULL, OUT_OF_RANGE, RED, YELLOW
+from games.connectfour import GAME_TYPE as game
+from games.framework import (
+    DRAW,
+    Computer,
+    GameOver,
+    Human,
+    Moved,
+    MoveRejected,
+    Started,
+    play_game,
+)
+from tests.support import GOLDEN_INPUT, ScriptedIO, golden_transcript, run_program
 
 
 def play(*columns):
@@ -47,16 +55,13 @@ class RulesTests(unittest.TestCase):
 
     def test_diagonal_wins(self):
         # Rising: Red at (1,0) (2,1) (3,2) (4,3).
-        self.assertEqual(game.result(play(1, 2, 2, 3, 3, 4, 3, 4, 4, 7, 4)),
-                         RED)
+        self.assertEqual(game.result(play(1, 2, 2, 3, 3, 4, 3, 4, 4, 7, 4)), RED)
         # Falling: Red at (7,0) (6,1) (5,2) (4,3).
-        self.assertEqual(game.result(play(7, 6, 6, 5, 5, 4, 5, 4, 4, 1, 4)),
-                         RED)
+        self.assertEqual(game.result(play(7, 6, 6, 5, 5, 4, 5, 4, 4, 1, 4)), RED)
 
     def test_full_board_without_four_is_a_draw(self):
         # A drawn Game found by random playouts.
-        moves = [int(ch) for ch in
-                 "547125662261271266215743771576315353334444"]
+        moves = [int(ch) for ch in "547125662261271266215743771576315353334444"]
         state = play(*moves)
         self.assertEqual(game.legal_moves(state), [])
         self.assertEqual(game.result(state), DRAW)
@@ -67,20 +72,23 @@ def human_vs_computer(human_first, texts=(), start=None):
     first legal column (centre first), against the computer at the default
     Difficulty. Return the Player I/O (with its events) and the Result."""
     scripted = ScriptedIO(texts, game_type=game)
-    players = ((Human(), Computer(game.default_depth)) if human_first
-               else (Computer(game.default_depth), Human()))
+    players = (
+        (Human(), Computer(game.default_depth))
+        if human_first
+        else (Computer(game.default_depth), Human())
+    )
     return scripted, play_game(game, players, scripted, start=start)
 
 
 class GameTests(unittest.TestCase):
     def test_human_first_plays_red_to_a_result(self):
         scripted, result = human_vs_computer(True, ["4"])
-        self.assertEqual(scripted.events[0],
-                         Started((Human(), Computer(6)), game.initial_state()))
+        self.assertEqual(
+            scripted.events[0], Started((Human(), Computer(6)), game.initial_state())
+        )
         moved = scripted.of_type(Moved)
         self.assertEqual((moved[0].side, moved[0].move), (RED, 3))
-        self.assertEqual([m.side for m in moved[:4]],
-                         [RED, YELLOW, RED, YELLOW])
+        self.assertEqual([m.side for m in moved[:4]], [RED, YELLOW, RED, YELLOW])
         over = scripted.events[-1]
         self.assertIsInstance(over, GameOver)
         self.assertEqual(over.result, result)
@@ -94,18 +102,21 @@ class GameTests(unittest.TestCase):
 
     def test_out_of_range_column_rejected_and_asked_again(self):
         scripted, _ = human_vs_computer(True, ["8", "0", "x", "1"])
-        self.assertEqual(scripted.events[1:3], [MoveRejected(7, OUT_OF_RANGE),
-                                                MoveRejected(-1, OUT_OF_RANGE)])
+        self.assertEqual(
+            scripted.events[1:3],
+            [MoveRejected(7, OUT_OF_RANGE), MoveRejected(-1, OUT_OF_RANGE)],
+        )
         self.assertEqual(len(scripted.parse_errors), 1)
         self.assertEqual(scripted.events[3].move, 0)
 
     def test_full_column_rejected_and_asked_again(self):
-        scripted, _ = human_vs_computer(True, ["1", "1", "2"],
-                                        start=play(1, 1, 1, 1, 1, 1))
-        self.assertEqual(scripted.events[1:3], [MoveRejected(0, FULL),
-                                                MoveRejected(0, FULL)])
-        self.assertEqual((scripted.events[3].side, scripted.events[3].move),
-                         (RED, 1))
+        scripted, _ = human_vs_computer(
+            True, ["1", "1", "2"], start=play(1, 1, 1, 1, 1, 1)
+        )
+        self.assertEqual(
+            scripted.events[1:3], [MoveRejected(0, FULL), MoveRejected(0, FULL)]
+        )
+        self.assertEqual((scripted.events[3].side, scripted.events[3].move), (RED, 1))
 
     def test_quitting_propagates(self):
         with self.assertRaises(EOFError):
@@ -117,8 +128,7 @@ class ComputerTacticsTests(unittest.TestCase):
         # Yellow (computer) has columns 1-3 on the bottom row. The human,
         # Red, makes a vertical three in column 7 that Yellow could block,
         # but Yellow wins in column 4 instead.
-        scripted, result = human_vs_computer(True, ["7"],
-                                             start=play(7, 1, 7, 2, 6, 3))
+        scripted, result = human_vs_computer(True, ["7"], start=play(7, 1, 7, 2, 6, 3))
         self.assertEqual(result, YELLOW)
         last = scripted.of_type(Moved)[-1]
         self.assertEqual((last.side, last.move), (YELLOW, 3))
@@ -138,6 +148,7 @@ class ComputerTacticsTests(unittest.TestCase):
 
     def test_a_move_takes_about_a_second_or_less(self):
         import time
+
         state = game.initial_state()
         started = time.perf_counter()
         Computer(game.default_depth).choose_move(game, state, None)
@@ -162,8 +173,9 @@ class ParseMoveTests(unittest.TestCase):
 def render(state):
     """Render the board; return its plain text and the styled glyphs as
     ``(row of text, glyph, Style)`` for every non-space, non-line glyph."""
-    console = Console(record=True, width=80, color_system="truecolor",
-                      file=io.StringIO())
+    console = Console(
+        record=True, width=80, color_system="truecolor", file=io.StringIO()
+    )
     glyphs = []
     line = 0
     for segment in console.render(game.render(state)):
@@ -202,54 +214,59 @@ class RenderingTests(unittest.TestCase):
 
     def test_most_recent_move_highlighted(self):
         _, glyphs = render(play(1, 1, 7))
-        reversed_discs = [(ch, style.color.name)
-                          for _, ch, style in glyphs if style.reverse]
+        reversed_discs = [
+            (ch, style.color.name) for _, ch, style in glyphs if style.reverse
+        ]
         self.assertEqual(reversed_discs, [("R", "red")])
         # It is the disc in column 7, the last one drawn on the bottom row.
         self.assertTrue(glyphs[-1][2].reverse)
 
     def test_winning_four_on_green(self):
         _, glyphs = render(play(1, 1, 2, 2, 3, 3, 4))
-        green = [ch for _, ch, style in glyphs
-                 if style.bgcolor is not None
-                 and style.bgcolor.name == "green"]
+        green = [
+            ch
+            for _, ch, style in glyphs
+            if style.bgcolor is not None and style.bgcolor.name == "green"
+        ]
         self.assertEqual(green, ["R"] * 4)
-        others = [ch for _, ch, style in glyphs
-                  if ch in "RY" and (style.bgcolor is None
-                                     or style.bgcolor.name != "green")]
+        others = [
+            ch
+            for _, ch, style in glyphs
+            if ch in "RY" and (style.bgcolor is None or style.bgcolor.name != "green")
+        ]
         self.assertEqual(others, ["Y"] * 3)
 
 
 class TerminalIOTests(unittest.TestCase):
     def _shown(self, *events):
         out = io.StringIO()
-        terminal = framework.TerminalIO(game, Console(file=out,
-                                                      color_system=None))
+        terminal = framework.TerminalIO(game, Console(file=out, color_system=None))
         for event in events:
             terminal.show(event)
         return out.getvalue()
 
     def test_rejected_moves_use_the_typed_column_number(self):
-        self.assertIn("Column 1 is full",
-                      self._shown(MoveRejected(0, FULL)))
-        self.assertIn("8 is out of range; choose a column from 1 to 7",
-                      self._shown(MoveRejected(7, OUT_OF_RANGE)))
+        self.assertIn("Column 1 is full", self._shown(MoveRejected(0, FULL)))
+        self.assertIn(
+            "8 is out of range; choose a column from 1 to 7",
+            self._shown(MoveRejected(7, OUT_OF_RANGE)),
+        )
 
     def test_end_messages_address_the_human(self):
         state = game.initial_state()
         started = Started((Human(), Computer(6)), state)
         self.assertIn("You win!", self._shown(started, GameOver(RED, state)))
-        self.assertNotIn("should not happen",
-                         self._shown(started, GameOver(RED, state)))
-        self.assertIn("The computer wins!",
-                      self._shown(started, GameOver(YELLOW, state)))
-        self.assertIn("It's a draw!", self._shown(started,
-                                                  GameOver(DRAW, state)))
+        self.assertNotIn(
+            "should not happen", self._shown(started, GameOver(RED, state))
+        )
+        self.assertIn(
+            "The computer wins!", self._shown(started, GameOver(YELLOW, state))
+        )
+        self.assertIn("It's a draw!", self._shown(started, GameOver(DRAW, state)))
 
 
 def connect_four(*args, input=""):
-    return run_program(["-m", "games"], "--game", "connect-four", *args,
-                       input=input)
+    return run_program(["-m", "games"], "--game", "connect-four", *args, input=input)
 
 
 class CommandLineTests(unittest.TestCase):
@@ -259,12 +276,10 @@ class CommandLineTests(unittest.TestCase):
         out = result.stdout
         self.assertIn("Connect Four", out)
         self.assertIn("Do you want to go first? (y/n):", out)
-        self.assertIn("You are Red, the computer is Yellow. Red moves first.",
-                      out)
+        self.assertIn("You are Red, the computer is Yellow. Red moves first.", out)
         self.assertIn("┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃ 5 ┃ 6 ┃ 7 ┃", out)
         self.assertIn("Your move (1-7):", out)
-        self.assertIn("Please enter a column number from 1 to 7 (got 'abc').",
-                      out)
+        self.assertIn("Please enter a column number from 1 to 7 (got 'abc').", out)
         self.assertIn("9 is out of range; choose a column from 1 to 7.", out)
         self.assertRegex(out, r"Computer \(Yellow\) plays column [1-7]\.")
         self.assertTrue(out.rstrip().endswith("Goodbye!"))
@@ -273,18 +288,19 @@ class CommandLineTests(unittest.TestCase):
         # The human goes second and cycles through the columns (full ones
         # are rejected) until the Game ends; extra lines are refused by the
         # play-again prompt, and the last one answers it.
-        result = connect_four(input="n\n" + "1\n2\n3\n4\n5\n6\n7\n" * 7
-                              + "n\n")
+        result = connect_four(input="n\n" + "1\n2\n3\n4\n5\n6\n7\n" * 7 + "n\n")
         self.assertEqual(result.returncode, 0, result.stderr)
         out = result.stdout
         self.assertIn("You are Yellow, the computer is Red.", out)
-        self.assertRegex(out, r"(You win!|The computer wins!|It's a draw!)"
-                              r"\n\nPlay again\? \(y/n\):")
+        self.assertRegex(
+            out,
+            r"(You win!|The computer wins!|It's a draw!)"
+            r"\n\nPlay again\? \(y/n\):",
+        )
         self.assertTrue(out.rstrip().endswith("Goodbye!"))
 
     def test_tictactoe_by_name_plays_like_the_golden_transcript(self):
-        result = run_program(["-m", "games"], "--game", "tictactoe",
-                             input=GOLDEN_INPUT)
+        result = run_program(["-m", "games"], "--game", "tictactoe", input=GOLDEN_INPUT)
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertEqual(result.stdout, golden_transcript())
 

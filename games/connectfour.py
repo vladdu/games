@@ -8,7 +8,6 @@ column index 0-6; the human types it as 1-7. Red always moves first.
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 from rich import box
 from rich.table import Table
@@ -26,8 +25,9 @@ YELLOW = "Yellow"
 class State:
     """A Connect Four position: ``columns`` holds each column's discs from
     the bottom up, and ``last_move`` is the column of the most recent Move."""
+
     columns: tuple = ((),) * COLUMNS
-    last_move: Optional[int] = None
+    last_move: int | None = None
 
 
 def disc_at(state, column, row):
@@ -44,8 +44,7 @@ def windows():
             for dc, dr in ((1, 0), (0, 1), (1, 1), (1, -1)):
                 end_col, end_row = col + 3 * dc, row + 3 * dr
                 if 0 <= end_col < COLUMNS and 0 <= end_row < ROWS:
-                    yield tuple((col + i * dc, row + i * dr)
-                                for i in range(4))
+                    yield tuple((col + i * dc, row + i * dr) for i in range(4))
 
 
 WINDOWS = tuple(windows())
@@ -68,8 +67,9 @@ def _find_four(state):
     """Return the first window of four held by one Side, or None."""
     for window in WINDOWS:
         first = disc_at(state, *window[0])
-        if first is not None and all(disc_at(state, c, r) == first
-                                     for c, r in window[1:]):
+        if first is not None and all(
+            disc_at(state, c, r) == first for c, r in window[1:]
+        ):
             return window
     return None
 
@@ -109,12 +109,14 @@ def board_table(state):
         pad_edge=True,
     )
     for column in range(COLUMNS):
-        table.add_column(Text(str(column + 1), style=HEADER_STYLE),
-                         justify="center", min_width=1)
+        table.add_column(
+            Text(str(column + 1), style=HEADER_STYLE), justify="center", min_width=1
+        )
     win = _find_four(state) or ()
     for row in reversed(range(ROWS)):
-        table.add_row(*(_place_text(state, column, row, win)
-                        for column in range(COLUMNS)))
+        table.add_row(
+            *(_place_text(state, column, row, win) for column in range(COLUMNS))
+        )
     return table
 
 
@@ -133,8 +135,10 @@ class ConnectFour:
 
     name = "connect-four"
     title = "Connect Four"
-    summary = ("Connect Four on a 7x6 board; enter a column number 1-7 to "
-               "drop a disc, Red moves first")
+    summary = (
+        "Connect Four on a 7x6 board; enter a column number 1-7 to "
+        "drop a disc, Red moves first"
+    )
     sides = (RED, YELLOW)
     default_depth = DEFAULT_DEPTH
 
@@ -204,8 +208,7 @@ class ConnectFour:
         try:
             number = int(text)
         except ValueError:
-            return None, ("Please enter a column number from 1 to 7 "
-                          "(got %r)." % text)
+            return None, ("Please enter a column number from 1 to 7 (got %r)." % text)
         return number - 1, None
 
     def move_text(self, move):
@@ -225,8 +228,10 @@ class ConnectFour:
 
     def intro(self, against_computer):
         return [
-            Text("Type a column number from 1 to 7 to drop a disc; "
-                 "the most recent move is highlighted."),
+            Text(
+                "Type a column number from 1 to 7 to drop a disc; "
+                "the most recent move is highlighted."
+            ),
         ]
 
 

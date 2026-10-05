@@ -10,20 +10,22 @@ long as possible. In tic-tac-toe it searches to the end of the game, so it is
 unbeatable; in Connect Four it looks 6 moves ahead. You can make it weaker (or
 stronger) with `--depth`.
 
-Requires Python 3 and the [rich](https://github.com/Textualize/rich) library
-for the terminal UI. Install it with:
+Requires Python 3.10+ and the [rich](https://github.com/Textualize/rich)
+library for the terminal UI. The project is managed with
+[uv](https://docs.astral.sh/uv/); set it up (a virtualenv with rich, the
+package and its scripts, and ruff) with:
 
 ```sh
-pip install -r requirements.txt
+uv sync
 ```
 
 ## Play
 
 ```sh
-python3 -m games
+uv run games
 ```
 
-This starts with a menu of the Game types:
+(`uv run python -m games` does the same.) This starts with a menu of the Game types:
 
 ```
 Choose a game:
@@ -38,13 +40,13 @@ and Ctrl+C or Ctrl+D quits. "Play again" after each game plays the same Game
 type. To skip the menu, name the Game type with `--game`:
 
 ```sh
-python3 -m games --game tictactoe
-python3 -m games --game connect-four
+uv run games --game tictactoe
+uv run games --game connect-four
 ```
 
 An unknown name is an error that lists the valid names.
-`python3 tictactoe.py` is a shortcut that starts tic-tac-toe directly; it
-takes the same flags except `--game`. Run `python3 -m games --help` (or `-h`)
+`uv run tictactoe` is a shortcut that starts tic-tac-toe directly; it
+takes the same flags except `--game`. Run `uv run games --help` (or `-h`)
 for a short summary of how to play.
 
 ### Players and Difficulty
@@ -55,9 +57,9 @@ first?". To choose who plays each Side instead, use `--first` and `--second`
 keeps the same Players:
 
 ```sh
-python3 -m games --game connect-four --first human --second human   # hot-seat
-python3 -m games --game tictactoe --first computer --second computer # watch
-python3 -m games --first computer        # you play second against the computer
+uv run games --game connect-four --first human --second human   # hot-seat
+uv run games --game tictactoe --first computer --second computer # watch
+uv run games --first computer        # you play second against the computer
 ```
 
 Giving only one of the two flags puts the other kind of Player on the other
@@ -119,7 +121,7 @@ Press Ctrl+C or Ctrl+D to quit at any time.
 Input comes from stdin, so the game can be scripted:
 
 ```sh
-printf '1\ny\n5\n8\n4\n3\n1\nn\n' | python3 -m games
+printf '1\ny\n5\n8\n4\n3\n1\nn\n' | uv run games
 ```
 
 ## Connect Four
@@ -157,8 +159,11 @@ first), so it always plays the same way in the same position.
 ## Tests
 
 ```sh
-python3 -m unittest -v
+uv run python -m unittest -v
+uv run ruff check .
 ```
+
+Ruff is configured in `pyproject.toml`.
 
 The tic-tac-toe tests cover winner detection, input parsing, board rendering (grid lines,
 glyphs and cell styles), the AI taking immediate wins
@@ -174,7 +179,7 @@ plays through the one Game loop in `games/framework.py`, and
 pass (random playouts end with a result, legal moves are accepted, rejected
 moves are refused with a reason, typed moves parse back to the same move).
 The tests live in `tests/`. A golden-transcript test pipes a scripted session
-through the real program (both `python3 tictactoe.py` and
+through the real program (both the `tictactoe` script and
 `python3 -m games --game tictactoe`) and compares its output with
 `golden_transcript.txt`; if you change the terminal output on purpose,
 regenerate that file with the input listed in the test. The startup menu has
