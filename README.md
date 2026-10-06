@@ -7,7 +7,7 @@ computer play itself.
 Every game's computer uses the same depth-limited alpha-beta search with
 depth-aware scoring: it takes the fastest win available and delays any loss as
 long as possible. In tic-tac-toe it searches to the end of the game, so it is
-unbeatable; in Connect Four it looks 6 moves ahead and in Gomoku 2. You can make it weaker (or
+unbeatable; in Connect Four it looks 6 moves ahead and in Gomoku 3. You can make it weaker (or
 stronger) with `--depth`.
 
 Requires Python 3.10+ and the [rich](https://github.com/Textualize/rich)
@@ -77,7 +77,7 @@ message names the winner ("Red wins!").
 `--depth N` sets the computer's Difficulty: how many moves ahead it looks
 (1 or more). Without it, each Game type uses its own default: tic-tac-toe
 searches to the end of the game (unbeatable), Connect Four looks 6 moves
-ahead and Gomoku 2. At any limited depth the tic-tac-toe computer can be beaten. Large
+ahead and Gomoku 3. At any limited depth the tic-tac-toe computer can be beaten. Large
 depths make Connect Four slow (depth 7 already takes a few seconds a move).
 The flags also apply after the menu.
 
@@ -195,8 +195,14 @@ below it and the row numbers on both sides:
 
 Black stones (●) are bold and White stones (○) bold bright white. The most
 recent move is shown in reverse video, and the winning five get a green
-background. The computer looks 2 moves ahead and scores unfinished
-positions by their open windows of five.
+background.
+
+The computer is beatable: it looks 3 moves ahead and scores unfinished
+positions by their open windows of five. To keep that quick it only
+considers the empty points next to a stone (just `e5` on an empty board),
+nearest to the centre first, so it always plays the same way in the same
+position. It takes a five when it has one, blocks yours, and answers in
+about a second or less (depth 4 takes several seconds a move).
 
 ## Tests
 
@@ -236,7 +242,9 @@ rendering (column header, colors and highlights), and the command line
 The Gomoku tests (`tests/test_gomoku.py`) cover the rules (a win in each
 direction, a win by six, a draw on a full board), typing points, whole
 hot-seat Games with refused and unparseable moves, the board rendering
-(edge labels, stone glyphs and styles, highlights) and the command line.
+(edge labels, stone glyphs and styles, highlights), the command line, and
+the computer: which points it searches, the heuristic's bounds, taking a five,
+blocking one, a mid-game move's time and a whole computer-vs-computer game.
 `tests/test_players.py` covers choosing Players and Difficulty: hot-seat and
 computer-vs-computer Games played in-process, the intro and end messages for
 each pairing of Players, and the `--first`, `--second` and `--depth` flags
