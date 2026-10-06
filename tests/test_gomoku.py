@@ -387,13 +387,13 @@ def render(state):
 
 
 class RenderingTests(unittest.TestCase):
-    def test_heavy_grid_with_labels_on_every_edge(self):
+    def test_thin_grid_with_labels_on_every_edge(self):
         lines, glyphs = render(game.initial_state())
         text = "\n".join(lines)
-        for ch in "┏┳┓┣╋┫┗┻┛┃━":
+        for ch in "┌┬┐├┼┤└┴┘│─":
             self.assertIn(ch, text, ch)
         # 9 rows: 8 separators between them.
-        self.assertEqual(sum("╋" in line for line in lines), 8)
+        self.assertEqual(sum("┼" in line for line in lines), 8)
         letters = "abcdefghi"
         top = [g for g in glyphs if g[0] == glyphs[0][0]]
         bottom = [g for g in glyphs if g[0] == glyphs[-1][0]]

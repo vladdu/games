@@ -152,9 +152,9 @@ def _stone_text(state, column, row, win):
 
 
 def board_table(state):
-    """Return a rich Table drawing the board as a heavy-lined 9x9 grid."""
+    """Return a rich Table drawing the board as a thin-lined 9x9 grid."""
     table = Table(
-        box=box.HEAVY,
+        box=box.SQUARE,
         show_header=False,
         show_lines=True,
         padding=(0, 1),

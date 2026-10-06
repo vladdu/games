@@ -48,7 +48,7 @@ class ScriptedIO:
 # Two tic-tac-toe Games: the human goes first (with every kind of bad input)
 # and draws, then goes second and loses. golden_transcript.txt was first
 # recorded before the Game / Terminal I/O split, and re-recorded when cells
-# were renumbered in keypad order.
+# were renumbered in keypad order and when the board lines became thin.
 GOLDEN_INPUT = (
     "\n".join(
         [

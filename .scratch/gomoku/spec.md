@@ -40,7 +40,7 @@ Add Gomoku as the third Game type: a 9×9 board, Black and White, Black moving f
   - off the board: "j3 is off the board; columns are a-i and rows 1-9."
   - taken: "e5 is taken; pick an empty point."
   `move_text` gives the lower-case form, e.g. `e5`, and `describe_move` gives e.g. "point [bold]e5[/]".
-- **Rendering.** A 9×9 grid in the heavy-lined style Connect Four uses. Column letters a-i run along the top and bottom, and row numbers 9 down to 1 run down both sides. Black is `●` (bold), White is `○` (bold bright_white). The most recent Move is shown in reverse video and the Winning five on a green background.
+- **Rendering.** A 9×9 grid with thin lines, like the other Game types. Column letters a-i run along the top and bottom, and row numbers 9 down to 1 run down both sides. Black is `●` (bold), White is `○` (bold bright_white). The most recent Move is shown in reverse video and the Winning five on a green background.
 - **Computer.**
   - Search Moves: the empty Points within distance 1 (counting diagonals) of any stone, nearest to the centre first. On an empty board the only search Move is e5.
   - Heuristic: every window of five Points holding stones of only one Side counts for that Side, weighted `{1: 1, 2: 10, 3: 100, 4: 1000}`. It must stay well inside ±`WIN_SCORE / 2`.

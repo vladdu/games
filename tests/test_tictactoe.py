@@ -285,12 +285,12 @@ def render(state):
 class RenderingTests(unittest.TestCase):
     def test_board_has_full_grid_lines(self):
         out, _ = render(board_from("O.X.X...."))
-        for ch in "┏┳┓┣╋┫┗┻┛┃━":
+        for ch in "┌┬┐├┼┤└┴┘│─":
             self.assertIn(ch, out, ch)
         lines = out.splitlines()
         # Horizontal separators run the full width with junctions.
-        self.assertEqual(sum("╋" in line for line in lines), 2)
-        self.assertEqual(lines[0].count("┳"), 2)
+        self.assertEqual(sum("┼" in line for line in lines), 2)
+        self.assertEqual(lines[0].count("┬"), 2)
 
     def test_board_shows_marks_and_guide_numbers(self):
         _, glyphs = render(board_from("O.X.X...."))

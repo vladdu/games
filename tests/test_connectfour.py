@@ -190,17 +190,17 @@ def render(state):
 
 
 class RenderingTests(unittest.TestCase):
-    def test_heavy_grid_with_column_header(self):
+    def test_thin_grid_with_column_header(self):
         text, glyphs = render(game.initial_state())
-        for ch in "┏┳┓┣╋┫┗┻┛┃━":
+        for ch in "┌┬┐├┼┤└┴┘│─":
             self.assertIn(ch, text, ch)
         header = [g for g in glyphs if g[0] == glyphs[0][0]]
         self.assertEqual("".join(ch for _, ch, _ in header), "1234567")
         self.assertTrue(all(style.bold for _, _, style in header))
         lines = text.splitlines()
         # One separator under the header and between each of the 6 rows.
-        self.assertEqual(sum("╋" in line for line in lines), 6)
-        self.assertEqual(lines[0].count("┳"), 6)
+        self.assertEqual(sum("┼" in line for line in lines), 6)
+        self.assertEqual(lines[0].count("┬"), 6)
 
     def test_discs_drawn_from_the_bottom_in_distinct_colors(self):
         _, glyphs = render(play(1, 1, 7))
@@ -277,7 +277,7 @@ class CommandLineTests(unittest.TestCase):
         self.assertIn("Connect Four", out)
         self.assertIn("Do you want to go first? (y/n):", out)
         self.assertIn("You are Red, the computer is Yellow. Red moves first.", out)
-        self.assertIn("┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃ 5 ┃ 6 ┃ 7 ┃", out)
+        self.assertIn("│ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │", out)
         self.assertIn("Your move (1-7):", out)
         self.assertIn("Please enter a column number from 1 to 7 (got 'abc').", out)
         self.assertIn("9 is out of range; choose a column from 1 to 7.", out)

@@ -152,7 +152,7 @@ class RedrawTests(unittest.TestCase):
         self.assertEqual(out.count("X: human, O: human. X moves first."), 6)
         # The final screen shows the board once, then the Result.
         final = out.split(CLEAR)[-1]
-        self.assertEqual(final.count("┏"), 1)
+        self.assertEqual(final.count("┌"), 1)
         self.assertIn("X wins!", final)
 
     def test_the_computers_move_is_shown_under_its_board(self):

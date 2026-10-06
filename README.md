@@ -98,19 +98,19 @@ first, O otherwise; X always moves first). The board is drawn as a grid, and eac
 its number (1-9), laid out like a numeric keypad:
 
 ```
-┏━━━━━━━┳━━━━━━━┳━━━━━━━┓
-┃       ┃       ┃       ┃
-┃   7   ┃   8   ┃   9   ┃
-┃       ┃       ┃       ┃
-┣━━━━━━━╋━━━━━━━╋━━━━━━━┫
-┃       ┃       ┃       ┃
-┃   4   ┃   5   ┃   6   ┃
-┃       ┃       ┃       ┃
-┣━━━━━━━╋━━━━━━━╋━━━━━━━┫
-┃       ┃       ┃       ┃
-┃   1   ┃   2   ┃   3   ┃
-┃       ┃       ┃       ┃
-┗━━━━━━━┻━━━━━━━┻━━━━━━━┛
+┌───────┬───────┬───────┐
+│       │       │       │
+│   7   │   8   │   9   │
+│       │       │       │
+├───────┼───────┼───────┤
+│       │       │       │
+│   4   │   5   │   6   │
+│       │       │       │
+├───────┼───────┼───────┤
+│       │       │       │
+│   1   │   2   │   3   │
+│       │       │       │
+└───────┴───────┴───────┘
 ```
 
 Colors: X is bold cyan, O is bold magenta, and the guide numbers in empty
@@ -139,18 +139,18 @@ column. Four in a row horizontally, vertically or diagonally wins, and a full
 board without one is a draw. Input that isn't a number, a column outside
 1-7, and a full column are refused, and you are asked again.
 
-The board uses the same heavy-lined grid, with the column numbers above it:
+The board uses the same thin-lined grid, with the column numbers above it:
 
 ```
-┏━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┓
-┃ 1 ┃ 2 ┃ 3 ┃ 4 ┃ 5 ┃ 6 ┃ 7 ┃
-┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
-┃   ┃   ┃   ┃   ┃   ┃   ┃   ┃
-┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
+┌───┬───┬───┬───┬───┬───┬───┐
+│ 1 │ 2 │ 3 │ 4 │ 5 │ 6 │ 7 │
+├───┼───┼───┼───┼───┼───┼───┤
+│   │   │   │   │   │   │   │
+├───┼───┼───┼───┼───┼───┼───┤
 ...
-┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
-┃ Y ┃   ┃   ┃ R ┃ R ┃   ┃   ┃
-┗━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┛
+├───┼───┼───┼───┼───┼───┼───┤
+│ Y │   │   │ R │ R │   │   │
+└───┴───┴───┴───┴───┴───┴───┘
 ```
 
 Red discs (R) are bold red and Yellow discs (Y) bold yellow. The most recent
@@ -174,22 +174,22 @@ wins too, and there are no opening rules), and a full board without one is a
 draw. Text that isn't shaped like a point, a point off the board (such as
 `j3` or `a10`) and a taken point are refused, and you are asked again.
 
-The board uses the same heavy-lined grid, with the column letters above and
+The board is a thin-lined grid, with the column letters above and
 below it and the row numbers on both sides:
 
 ```
     a   b   c   d   e   f   g   h   i
-  ┏━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┓
-9 ┃   ┃   ┃   ┃   ┃   ┃   ┃   ┃   ┃ ○ ┃ 9
-  ┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
+  ┌───┬───┬───┬───┬───┬───┬───┬───┬───┐
+9 │   │   │   │   │   │   │   │   │ ○ │ 9
+  ├───┼───┼───┼───┼───┼───┼───┼───┼───┤
 ...
-  ┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
-5 ┃   ┃   ┃   ┃   ┃ ● ┃   ┃   ┃   ┃   ┃ 5
-  ┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
+  ├───┼───┼───┼───┼───┼───┼───┼───┼───┤
+5 │   │   │   │   │ ● │   │   │   │   │ 5
+  ├───┼───┼───┼───┼───┼───┼───┼───┼───┤
 ...
-  ┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
-1 ┃ ● ┃   ┃   ┃   ┃   ┃   ┃   ┃   ┃   ┃ 1
-  ┗━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┛
+  ├───┼───┼───┼───┼───┼───┼───┼───┼───┤
+1 │ ● │   │   │   │   │   │   │   │   │ 1
+  └───┴───┴───┴───┴───┴───┴───┴───┴───┘
     a   b   c   d   e   f   g   h   i
 ```
 

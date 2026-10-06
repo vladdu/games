@@ -98,11 +98,11 @@ def _place_text(state, column, row, win):
 
 
 def board_table(state):
-    """Return a rich Table drawing the board as a heavy-lined 7x6 grid under
+    """Return a rich Table drawing the board as a thin-lined 7x6 grid under
     a header of column numbers. The most recent Move is highlighted, and the
     winning four (if any) is shown on a green background."""
     table = Table(
-        box=box.HEAVY,
+        box=box.SQUARE,
         show_header=True,
         show_lines=True,
         padding=(0, 1),

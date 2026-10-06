@@ -8,7 +8,7 @@ numbers 1..9 shown to the human follow a numeric keypad instead (7 8 9 on the
 top row, 1 2 3 on the bottom); ``cell_number`` and ``cell_index`` convert
 between them.
 
-The board is drawn as a heavy-lined rich table with X and O in their own
+The board is drawn as a thin-lined rich table with X and O in their own
 colors; empty Cells show a dim guide number (1-9), the most recent Move is
 highlighted, and a Winning line gets a green background.
 """
@@ -130,7 +130,7 @@ def board_table(state):
     The most recent Move is highlighted and the Winning line, if any, is on
     a green background."""
     table = Table(
-        box=box.HEAVY,
+        box=box.SQUARE,
         show_header=False,
         show_lines=True,
         padding=(1, 3),
