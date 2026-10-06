@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: resolved
 
 # Spec: Gomoku on a 9×9 board
 
