@@ -67,6 +67,19 @@ class TreeGame:
         return move
 
 
+class NarrowTreeGame(TreeGame):
+    """A TreeGame whose computer only searches some of the legal Moves:
+    ``search`` gives the search Moves of a state, keyed by its path; other
+    states search all their legal Moves."""
+
+    def __init__(self, tree, search, scores=None):
+        super().__init__(tree, scores)
+        self.search = search
+
+    def search_moves(self, state):
+        return self.search.get(state, self.legal_moves(state))
+
+
 def computer_move(game_type, depth=None, state=()):
     return Computer(depth).choose_move(game_type, state, None)
 
@@ -113,6 +126,20 @@ class SharedSearchTests(unittest.TestCase):
         tree = {"a": {"b1": {"x": DRAW}, "b2": {"x": DRAW}}}
         game = TreeGame(tree, scores={("a", "b1"): 5, ("a", "b2"): -5})
         self.assertEqual(computer_move(game, depth=1, state=("a",)), "b2")
+
+    def test_only_search_moves_are_considered(self):
+        tree = {"lose": {"x": B}, "win": A, "draw": {"x": DRAW}}
+        self.assertEqual(computer_move(TreeGame(tree)), "win")
+        game = NarrowTreeGame(tree, search={(): ["lose", "draw"]})
+        self.assertEqual(computer_move(game), "draw")
+
+    def test_search_moves_are_used_at_every_level(self):
+        # B's reply "x" to "a" wins for B, so A plays "b"; but when B's
+        # search Moves leave out "x", A expects "a" to win.
+        tree = {"a": {"x": B, "y": A}, "b": {"x": DRAW}}
+        self.assertEqual(computer_move(TreeGame(tree)), "b")
+        game = NarrowTreeGame(tree, search={("a",): ["y"]})
+        self.assertEqual(computer_move(game), "a")
 
     def test_computer_plays_a_whole_game(self):
         game = TreeGame({"bad": {"x": B}, "good": {"x": A, "y": A}})
