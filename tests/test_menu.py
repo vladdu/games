@@ -14,7 +14,7 @@ from tests.support import GOLDEN_INPUT, ROOT, golden_transcript, run_program
 
 # Three refused choices, then tic-tac-toe, played with the tic-tac-toe
 # golden session (two Games, so "Play again" is answered yes once).
-MENU_GOLDEN_INPUT = "0\nabc\n3\n1\n" + GOLDEN_INPUT
+MENU_GOLDEN_INPUT = "0\nabc\n4\n1\n" + GOLDEN_INPUT
 
 
 def menu_golden_transcript():
@@ -33,6 +33,12 @@ class MenuTests(unittest.TestCase):
         for number, game_type in enumerate(GAME_TYPES.values(), 1):
             self.assertIn("%d. %s" % (number, game_type.title), result.stdout)
 
+    def test_gomoku_is_the_third_entry(self):
+        result = menu(input="3\n")
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("  3. Gomoku", result.stdout)
+        self.assertIn("Type a point such as e5", result.stdout)
+
     def test_plays_the_chosen_game_type(self):
         result = menu(input="2\n")
         self.assertEqual(result.returncode, 0, result.stderr)
@@ -41,10 +47,10 @@ class MenuTests(unittest.TestCase):
         self.assertNotIn("Cells are numbered", result.stdout)
 
     def test_refuses_invalid_choices_and_asks_again(self):
-        result = menu(input="0\nabc\n3\n2\n")
+        result = menu(input="0\nabc\n4\n2\n")
         self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertEqual(result.stdout.count("Please enter a number from 1 to 2."), 3)
-        self.assertEqual(result.stdout.count("Game (1-2):"), 4)
+        self.assertEqual(result.stdout.count("Please enter a number from 1 to 3."), 3)
+        self.assertEqual(result.stdout.count("Game (1-3):"), 4)
         self.assertIn("you vs. the computer", result.stdout)
 
     def test_end_of_input_at_the_menu_quits(self):
@@ -110,6 +116,7 @@ class MenuTests(unittest.TestCase):
         self.assertIn("checkers (Checkers on an 8x8 board; jump to capture)", text)
         self.assertIn("tictactoe (Tic-tac-toe on a 3x3 grid", text)
         self.assertIn("connect-four (Connect Four on a 7x6 board", text)
+        self.assertIn("gomoku (Gomoku on a 9x9 board", text)
 
 
 if __name__ == "__main__":

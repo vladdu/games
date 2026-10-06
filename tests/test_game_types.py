@@ -9,6 +9,7 @@ from games.registry import GAME_TYPES
 # Text a human might type; any of it that parses to a Move that is not
 # legal must be refused with a reason.
 TYPED = [str(n) for n in range(-2, 12)] + ["99", "-50"]
+TYPED += ["e5", "a1", "i9", "j3", "a10", "a0", "z1", "e99"]
 PLAYOUTS = 30
 MAX_MOVES = 1000
 
@@ -32,6 +33,7 @@ class SharedGameTypeTests(unittest.TestCase):
     def test_registry_is_not_empty_and_keyed_by_name(self):
         self.assertIn("tictactoe", GAME_TYPES)
         self.assertIn("connect-four", GAME_TYPES)
+        self.assertIn("gomoku", GAME_TYPES)
         for name, game_type in GAME_TYPES.items():
             self.assertEqual(game_type.name, name)
 
