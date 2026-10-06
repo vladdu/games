@@ -1,6 +1,6 @@
 # Board games
 
-A terminal game framework in which people play turn-based board games (tic-tac-toe and Connect Four) against each other or against the computer.
+A terminal game framework in which people play turn-based board games (tic-tac-toe, Connect Four and Gomoku) against each other or against the computer.
 
 ## Language
 
@@ -19,7 +19,7 @@ A run of Games of one Game type with the same Players, from starting the program
 _Avoid_: Match, Game (for the whole run)
 
 **Side**:
-A place in a Game's turn order, such as first or second. Each Game type names its Sides: X and O in Tic-tac-toe, Red and Yellow in Connect Four.
+A place in a Game's turn order, such as first or second. Each Game type names its Sides: X and O in Tic-tac-toe, Red and Yellow in Connect Four, Black and White in Gomoku.
 _Avoid_: Player (for the place itself), color, mark, seat
 
 **Player**:
@@ -69,3 +69,13 @@ _Avoid_: Slot, file
 **Winning four**:
 The four discs in a row, column or diagonal that hold the winner's color.
 _Avoid_: Winning line (that is Tic-tac-toe's)
+
+### Gomoku
+
+**Point**:
+One of the 81 places on the 9×9 board, named for the human by a column letter a-i from the left and a row number 1-9 from the bottom, such as e5. A Gomoku Move places the Side's stone on an empty Point, anywhere on the board. Black always moves first.
+_Avoid_: Cell (that is Tic-tac-toe's), intersection, square
+
+**Winning five**:
+Five or more stones of the winner's color in an unbroken row, column or diagonal; a longer line wins too.
+_Avoid_: Winning line, Winning four (those are the other Game types')
