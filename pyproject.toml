@@ -1,7 +1,7 @@
 [project]
 name = "games"
 version = "0.1.0"
-description = "Terminal board games: tic-tac-toe and Connect Four."
+description = "Terminal board games: tic-tac-toe, Connect Four and Gomoku."
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = ["rich>=13"]

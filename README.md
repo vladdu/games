@@ -1,13 +1,13 @@
 # Board games
 
-Terminal board games in Python: tic-tac-toe and Connect Four. Play against
+Terminal board games in Python: tic-tac-toe, Connect Four and Gomoku. Play against
 the computer, against another person at the same terminal, or watch the
 computer play itself.
 
 Every game's computer uses the same depth-limited alpha-beta search with
 depth-aware scoring: it takes the fastest win available and delays any loss as
 long as possible. In tic-tac-toe it searches to the end of the game, so it is
-unbeatable; in Connect Four it looks 6 moves ahead. You can make it weaker (or
+unbeatable; in Connect Four it looks 6 moves ahead and in Gomoku 2. You can make it weaker (or
 stronger) with `--depth`.
 
 Requires Python 3.10+ and the [rich](https://github.com/Textualize/rich)
@@ -31,8 +31,9 @@ uv run games
 Choose a game:
   1. Tic-tac-toe
   2. Connect Four
+  3. Gomoku
 
-Game (1-2):
+Game (1-3):
 ```
 
 Type a number to pick one; anything else is refused and you are asked again,
@@ -42,6 +43,7 @@ type. To skip the menu, name the Game type with `--game`:
 ```sh
 uv run games --game tictactoe
 uv run games --game connect-four
+uv run games --game gomoku
 ```
 
 An unknown name is an error that lists the valid names.
@@ -75,14 +77,14 @@ message names the winner ("Red wins!").
 `--depth N` sets the computer's Difficulty: how many moves ahead it looks
 (1 or more). Without it, each Game type uses its own default: tic-tac-toe
 searches to the end of the game (unbeatable), Connect Four looks 6 moves
-ahead. At any limited depth the tic-tac-toe computer can be beaten. Large
+ahead and Gomoku 2. At any limited depth the tic-tac-toe computer can be beaten. Large
 depths make Connect Four slow (depth 7 already takes a few seconds a move).
 The flags also apply after the menu.
 
 The code lives in the `games` package. `games/framework.py` holds what every
 Game type shares: the Game type interface, the Game loop, Game events, the
 human and computer Players, the terminal Player I/O and the Session.
-`games/tictactoe.py` and `games/connectfour.py` each hold one Game type: its
+`games/tictactoe.py`, `games/connectfour.py` and `games/gomoku.py` each hold one Game type: its
 rules, board rendering and the heuristic score the shared search uses.
 `games/registry.py` lists the Game types by name, `games/cli.py` is the
 command line, and `games/__main__.py` is the entry point. Adding a Game type
@@ -160,6 +162,42 @@ takes a win when it has one, blocks yours, and answers in well under a
 second. Ties between equally good columns are broken in a fixed order (centre
 first), so it always plays the same way in the same position.
 
+## Gomoku
+
+Gomoku is played on a 9×9 board. Black always moves first; against the
+computer you choose whether to go first (you are Black if you do, White
+otherwise). Type a point as a column letter a-i (from the left) and a row
+number 1-9 (from the bottom), such as `e5`; case and spaces don't matter, so
+`E5` and `e 5` work too. A stone goes on any empty point. Five or more in a
+row horizontally, vertically or diagonally wins (freestyle: a line of six
+wins too, and there are no opening rules), and a full board without one is a
+draw. Text that isn't shaped like a point, a point off the board (such as
+`j3` or `a10`) and a taken point are refused, and you are asked again.
+
+The board uses the same heavy-lined grid, with the column letters above and
+below it and the row numbers on both sides:
+
+```
+    a   b   c   d   e   f   g   h   i
+  ┏━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┳━━━┓
+9 ┃   ┃   ┃   ┃   ┃   ┃   ┃   ┃   ┃ ○ ┃ 9
+  ┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
+...
+  ┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
+5 ┃   ┃   ┃   ┃   ┃ ● ┃   ┃   ┃   ┃   ┃ 5
+  ┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
+...
+  ┣━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━╋━━━┫
+1 ┃ ● ┃   ┃   ┃   ┃   ┃   ┃   ┃   ┃   ┃ 1
+  ┗━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┻━━━┛
+    a   b   c   d   e   f   g   h   i
+```
+
+Black stones (●) are bold and White stones (○) bold bright white. The most
+recent move is shown in reverse video, and the winning five get a green
+background. The computer looks 2 moves ahead and scores unfinished
+positions by their open windows of five.
+
 ## Tests
 
 ```sh
@@ -195,6 +233,10 @@ Games played with a scripted Player I/O (including refused moves), the
 computer taking a win and blocking one from set-up positions, the board
 rendering (column header, colors and highlights), and the command line
 (`--game`, `--help` and an unknown Game type).
+The Gomoku tests (`tests/test_gomoku.py`) cover the rules (a win in each
+direction, a win by six, a draw on a full board), typing points, whole
+hot-seat Games with refused and unparseable moves, the board rendering
+(edge labels, stone glyphs and styles, highlights) and the command line.
 `tests/test_players.py` covers choosing Players and Difficulty: hot-seat and
 computer-vs-computer Games played in-process, the intro and end messages for
 each pairing of Players, and the `--first`, `--second` and `--depth` flags
