@@ -161,6 +161,16 @@ class RulesTests(unittest.TestCase):
                 for side in game.sides:
                     self.assertLess(abs(game.heuristic(state, side)), most)
                 state = game.apply_move(state, rng.choice(game.legal_moves(state)))
+            # And on the finished board, which may hold a five.
+            for side in game.sides:
+                self.assertLess(abs(game.heuristic(state, side)), most)
+        # A board holding a five (or longer) scores like one holding a four.
+        five = play(
+            *alternate(["a5", "b5", "c5", "d5", "e5"], ["a9", "i9", "a1", "i1"])
+        )
+        self.assertEqual(game.result(five), BLACK)
+        self.assertGreater(game.heuristic(five, BLACK), 1000)
+        self.assertLess(game.heuristic(five, BLACK), most)
 
     def test_computer_settings(self):
         self.assertEqual(game.default_depth, 3)

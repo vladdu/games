@@ -39,10 +39,16 @@ def on_board(column, row):
     return 0 <= column < SIZE and 0 <= row < SIZE
 
 
+def index(column, row):
+    """The index into ``State.points`` of the Point at ``column`` and
+    ``row``."""
+    return row * SIZE + column
+
+
 def stone_at(state, column, row):
     """Return the stone on the Point at ``column`` and ``row`` (0-8, 0 =
     bottom left), or None if that Point is empty."""
-    return state.points[row * SIZE + column]
+    return state.points[index(column, row)]
 
 
 def windows():
@@ -52,9 +58,7 @@ def windows():
         for row in range(SIZE):
             for dc, dr in DIRECTIONS:
                 if on_board(column + 4 * dc, row + 4 * dr):
-                    yield tuple(
-                        (row + i * dr) * SIZE + column + i * dc for i in range(5)
-                    )
+                    yield tuple(index(column + i * dc, row + i * dr) for i in range(5))
 
 
 WINDOWS = tuple(windows())
@@ -70,11 +74,11 @@ POINT_ORDER = tuple(
 
 CENTRE = (4, 4)
 
-# The indices into ``State.points`` of the Points within distance 1 of each
-# Point (counting diagonals), for the search Moves.
+# The Points within distance 1 of each Point (counting diagonals), for the
+# search Moves.
 NEIGHBOURS = {
     (column, row): tuple(
-        (row + dr) * SIZE + column + dc
+        (column + dc, row + dr)
         for dr in (-1, 0, 1)
         for dc in (-1, 0, 1)
         if (dc or dr) and on_board(column + dc, row + dr)
@@ -91,8 +95,9 @@ TAKEN = "taken"
 # under about a second (depth 4 takes several seconds by the tenth Move).
 DEFAULT_DEPTH = 3
 # Score of a window of five holding n stones of one Side and none of the
-# other, for the heuristic of the shared search.
-WINDOW_SCORES = {1: 1, 2: 10, 3: 100, 4: 1000}
+# other, for the heuristic of the shared search. A won window (five) scores
+# like a four, keeping the heuristic total and well inside the Win score.
+WINDOW_SCORES = {1: 1, 2: 10, 3: 100, 4: 1000, 5: 1000}
 
 
 def _find_five(state):
@@ -134,7 +139,7 @@ LAST_MOVE_STYLE = "reverse"
 WIN_STYLE = "on green"
 
 
-def _point_text(state, column, row, win):
+def _stone_text(state, column, row, win):
     stone = stone_at(state, column, row)
     if stone is None:
         return Text(" ")
@@ -159,7 +164,7 @@ def board_table(state):
         table.add_column(justify="center", min_width=1)
     win = _find_five(state) or ()
     for row in reversed(range(SIZE)):
-        table.add_row(*(_point_text(state, column, row, win) for column in range(SIZE)))
+        table.add_row(*(_stone_text(state, column, row, win) for column in range(SIZE)))
     return table
 
 
@@ -225,16 +230,13 @@ class Gomoku:
     def search_moves(self, state):
         # The empty Points next to a stone (diagonals too), nearest to the
         # centre first; on an empty board, just the centre.
-        if _find_five(state) is not None:
-            return []
-        points = state.points
-        if all(stone is None for stone in points):
+        empty = self.legal_moves(state)
+        if len(empty) == SIZE * SIZE:
             return [CENTRE]
         return [
             p
-            for p in POINT_ORDER
-            if points[p[1] * SIZE + p[0]] is None
-            and any(points[i] is not None for i in NEIGHBOURS[p])
+            for p in empty
+            if any(stone_at(state, *n) is not None for n in NEIGHBOURS[p])
         ]
 
     def move_problem(self, state, move):
@@ -248,9 +250,8 @@ class Gomoku:
         problem = self.move_problem(state, move)
         if problem is not None:
             raise ValueError("point %s is %s" % (point_text(move), problem))
-        column, row = move
         points = list(state.points)
-        points[row * SIZE + column] = self.to_move(state)
+        points[index(*move)] = self.to_move(state)
         return State(tuple(points), move)
 
     def result(self, state):
