@@ -41,9 +41,16 @@ class GameType(Protocol):
         """The Side to move in a state that has no Result yet."""
 
     def legal_moves(self, state) -> list:
-        """The legal Moves, or [] once the Game has a Result. The computer
-        searches them in this order and, among equally good Moves, plays
-        the first, so put the likeliest good Moves first."""
+        """The legal Moves, or [] once the Game has a Result. Unless the
+        Game type defines ``search_moves``, the computer searches them in
+        this order and, among equally good Moves, plays the first, so put
+        the likeliest good Moves first."""
+
+    def search_moves(self, state) -> list:
+        """Optional (ADR 0002): the Moves the computer considers, in search
+        order, a subset of the legal Moves; among equally good Moves it
+        plays the first, so put the likeliest good Moves first. When a Game
+        type doesn't define it, it is ``legal_moves``."""
 
     def move_problem(self, state, move) -> str | None:
         """Why ``move`` is rejected in ``state``, or None if it is legal."""
@@ -200,14 +207,14 @@ def best_move(game_type, state, depth=None):
     """The Move the Side to move in ``state`` should make, looking ``depth``
     Moves ahead (None: to the end of the Game), or None if the Game is
     over. Depth-limited alpha-beta search; among equally good Moves the
-    first in ``legal_moves`` order is chosen, so the choice is
+    first in search Move order is chosen, so the choice is
     deterministic."""
     if game_type.result(state) is not None:
         return None
     me = game_type.to_move(state)
     choice = None
     alpha = -_INFINITY
-    for move in game_type.legal_moves(state):
+    for move in _search_moves(game_type, state):
         score = _score(
             game_type,
             game_type.apply_move(state, move),
@@ -222,6 +229,13 @@ def best_move(game_type, state, depth=None):
             # rather than its exact score, but never one above alpha.
             choice, alpha = move, max(alpha, score)
     return choice
+
+
+def _search_moves(game_type, state):
+    """The Moves the computer considers in ``state``: the Game type's
+    ``search_moves``, or its ``legal_moves`` when it has none."""
+    search_moves = getattr(game_type, "search_moves", game_type.legal_moves)
+    return search_moves(state)
 
 
 def _score(game_type, state, me, depth, ply, alpha, beta):
@@ -239,7 +253,7 @@ def _score(game_type, state, me, depth, ply, alpha, beta):
     maximizing = game_type.to_move(state) == me
     best = -_INFINITY if maximizing else _INFINITY
     next_depth = None if depth is None else depth - 1
-    for move in game_type.legal_moves(state):
+    for move in _search_moves(game_type, state):
         score = _score(
             game_type,
             game_type.apply_move(state, move),
