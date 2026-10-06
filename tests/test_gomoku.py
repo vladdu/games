@@ -1,4 +1,6 @@
 import io
+import random
+import time
 import unittest
 
 from rich.console import Console
@@ -8,11 +10,13 @@ import games.gomoku as gomoku
 from games import framework
 from games.framework import (
     DRAW,
+    Computer,
     GameOver,
     Human,
     Moved,
     MoveRejected,
     Started,
+    matchup,
     play_game,
 )
 from games.gomoku import BLACK, OFF_BOARD, TAKEN, WHITE
@@ -145,10 +149,61 @@ class RulesTests(unittest.TestCase):
         self.assertGreater(game.heuristic(four, BLACK), 1000)
         self.assertLess(game.heuristic(four, BLACK), framework.WIN_SCORE / 2)
 
+    def test_heuristic_stays_well_inside_the_win_score(self):
+        # Even if every window of five held four stones of one Side.
+        most = len(gomoku.WINDOWS) * max(gomoku.WINDOW_SCORES.values())
+        self.assertLess(most, framework.WIN_SCORE / 4)
+        # And on Games in progress reached by playing random Moves.
+        rng = random.Random(3)
+        for _ in range(20):
+            state = game.initial_state()
+            while game.result(state) is None:
+                for side in game.sides:
+                    self.assertLess(abs(game.heuristic(state, side)), most)
+                state = game.apply_move(state, rng.choice(game.legal_moves(state)))
+
     def test_computer_settings(self):
-        self.assertEqual(game.default_depth, 2)
+        self.assertEqual(game.default_depth, 3)
         self.assertFalse(game.unbeatable(game.default_depth))
         self.assertFalse(game.unbeatable(None))
+        self.assertEqual(matchup(game, None), "you vs. the computer")
+
+
+class SearchMovesTests(unittest.TestCase):
+    def points(self, state):
+        return [gomoku.point_text(p) for p in game.search_moves(state)]
+
+    def test_only_the_centre_on_an_empty_board(self):
+        self.assertEqual(self.points(game.initial_state()), ["e5"])
+
+    def test_empty_points_next_to_a_stone_nearest_the_centre_first(self):
+        self.assertEqual(
+            self.points(play("e5")), ["e4", "d5", "f5", "e6", "d4", "f4", "d6", "f6"]
+        )
+        self.assertEqual(self.points(play("a1")), ["b2", "b1", "a2"])
+
+    def test_taken_points_and_points_two_away_are_left_out(self):
+        state = play("e5", "f5", "a1")
+        moves = self.points(state)
+        self.assertEqual(len(moves), 10 + 3)
+        self.assertNotIn("e5", moves)
+        self.assertNotIn("f5", moves)
+        self.assertNotIn("c5", moves)
+        self.assertIn("g6", moves)
+        self.assertEqual(moves, self.points(state))
+        self.assertLessEqual(
+            set(game.search_moves(state)), set(game.legal_moves(state))
+        )
+        self.assertEqual(
+            game.search_moves(state),
+            [p for p in game.legal_moves(state) if p in game.search_moves(state)],
+        )
+
+    def test_none_once_the_game_has_a_result(self):
+        state = play(
+            *alternate(["c4", "d4", "e4", "f4", "g4"], ["a9", "c9", "e9", "g9"])
+        )
+        self.assertEqual(game.search_moves(state), [])
 
 
 def hot_seat(texts):
@@ -204,6 +259,58 @@ class GameTests(unittest.TestCase):
     def test_quitting_propagates(self):
         with self.assertRaises(EOFError):
             play_game(game, (Human(), Human()), ScriptedIO())
+
+
+def human_vs_computer(human_first, texts=(), start=None):
+    """Play a Game with a scripted human, who types ``texts`` and then the
+    first legal Point (centre first), against the computer at the default
+    Difficulty. Return the Player I/O (with its events) and the Result."""
+    scripted = ScriptedIO(texts, game_type=game)
+    computer = Computer(game.default_depth)
+    players = (Human(), computer) if human_first else (computer, Human())
+    return scripted, play_game(game, players, scripted, start=start)
+
+
+# A Game in progress after ten Moves each, Black to move: a crowded centre
+# with many search Moves.
+MID_GAME = play(
+    *alternate(
+        ["e5", "d4", "f6", "c3", "e3", "d6", "g5", "f4", "c5", "e7"],
+        ["e4", "f5", "d5", "g7", "b2", "e6", "c6", "f3", "d3", "g4"],
+    )
+)
+
+
+class ComputerTests(unittest.TestCase):
+    def test_completes_a_five(self):
+        # The computer, Black, has c5-f5 open at g5; White threatens too.
+        start = play(*alternate(["c5", "d5", "e5", "f5"], ["b5", "c6", "d6", "e6"]))
+        scripted, result = human_vs_computer(False, start=start)
+        self.assertEqual(result, BLACK)
+        (move,) = scripted.of_type(Moved)
+        self.assertEqual((move.side, move.move), (BLACK, point("g5")))
+
+    def test_blocks_a_four_with_one_open_end(self):
+        # The human, Black, has b5-e5 with a5 taken by White: f5 wins next.
+        start = play(*alternate(["b5", "c5", "d5", "e5"], ["a5", "h8", "h2"]))
+        scripted, _ = human_vs_computer(True, start=start)
+        first = scripted.of_type(Moved)[0]
+        self.assertEqual((first.side, first.move), (WHITE, point("f5")))
+
+    def test_computer_against_itself_ends_with_a_result(self):
+        computer = Computer(game.default_depth)
+        scripted = ScriptedIO()
+        result = play_game(game, (computer, computer), scripted)
+        self.assertIn(result, (BLACK, WHITE, DRAW))
+        self.assertEqual(scripted.events[-1], GameOver(result, scripted.state))
+        self.assertEqual(game.result(scripted.state), result)
+
+    def test_a_mid_game_move_takes_about_a_second_or_less(self):
+        self.assertEqual(game.to_move(MID_GAME), BLACK)
+        self.assertIsNone(game.result(MID_GAME))
+        started = time.perf_counter()
+        Computer(game.default_depth).choose_move(game, MID_GAME, None)
+        self.assertLess(time.perf_counter() - started, 1.5)
 
 
 class ParseMoveTests(unittest.TestCase):

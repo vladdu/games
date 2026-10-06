@@ -59,8 +59,8 @@ def windows():
 
 WINDOWS = tuple(windows())
 
-# Legal Moves are listed nearest to the centre first: among equally good
-# Moves the computer's search plays the first.
+# Legal Moves and search Moves are listed nearest to the centre first:
+# among equally good Moves the computer's search plays the first.
 POINT_ORDER = tuple(
     sorted(
         ((column, row) for row in range(SIZE) for column in range(SIZE)),
@@ -68,12 +68,28 @@ POINT_ORDER = tuple(
     )
 )
 
+CENTRE = (4, 4)
+
+# The indices into ``State.points`` of the Points within distance 1 of each
+# Point (counting diagonals), for the search Moves.
+NEIGHBOURS = {
+    (column, row): tuple(
+        (row + dr) * SIZE + column + dc
+        for dr in (-1, 0, 1)
+        for dc in (-1, 0, 1)
+        if (dc or dr) and on_board(column + dc, row + dr)
+    )
+    for column in range(SIZE)
+    for row in range(SIZE)
+}
+
 # Why a Move is rejected (see Gomoku.move_problem).
 OFF_BOARD = "off the board"
 TAKEN = "taken"
 
-# Provisional: ticket 03 tunes the computer.
-DEFAULT_DEPTH = 2
+# Default Difficulty: the deepest search keeping a mid-game computer Move
+# under about a second (depth 4 takes several seconds by the tenth Move).
+DEFAULT_DEPTH = 3
 # Score of a window of five holding n stones of one Side and none of the
 # other, for the heuristic of the shared search.
 WINDOW_SCORES = {1: 1, 2: 10, 3: 100, 4: 1000}
@@ -205,6 +221,21 @@ class Gomoku:
         if _find_five(state) is not None:
             return []
         return [p for p in POINT_ORDER if stone_at(state, *p) is None]
+
+    def search_moves(self, state):
+        # The empty Points next to a stone (diagonals too), nearest to the
+        # centre first; on an empty board, just the centre.
+        if _find_five(state) is not None:
+            return []
+        points = state.points
+        if all(stone is None for stone in points):
+            return [CENTRE]
+        return [
+            p
+            for p in POINT_ORDER
+            if points[p[1] * SIZE + p[0]] is None
+            and any(points[i] is not None for i in NEIGHBOURS[p])
+        ]
 
     def move_problem(self, state, move):
         if not on_board(*move):
