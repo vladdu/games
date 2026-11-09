@@ -50,6 +50,10 @@ _Avoid_: UI, console, frontend
 Something the Game tells Player I/O has happened: the Game started, a Move was made, a Move was rejected, or the Game is over.
 _Avoid_: Message, notification
 
+**Line**:
+N or more pieces of one Side in an unbroken row, column or diagonal of a grid. The Winning line, Winning four and Winning five are Lines of 3, 4 and 5.
+_Avoid_: Run, streak, chain
+
 ### Tic-tac-toe
 
 **Cell**:
@@ -67,7 +71,7 @@ One of the seven columns of the 7×6 board, numbered 1-7 from the left. A Connec
 _Avoid_: Slot, file
 
 **Winning four**:
-The four discs in a row, column or diagonal that hold the winner's color.
+Four or more discs of the winner's color in an unbroken row, column or diagonal.
 _Avoid_: Winning line (that is Tic-tac-toe's)
 
 ### Gomoku
