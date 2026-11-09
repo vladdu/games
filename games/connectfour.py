@@ -1,10 +1,11 @@
 """Connect Four, the second Game type: Red and Yellow alternate Moves,
 dropping discs into a 7x6 board; four in a row wins.
 
-State representation: an immutable ``State`` holding the 7 columns, each a
-tuple of the discs in it from the bottom up (``"Red"`` or ``"Yellow"``), and
-the column of the most recent Move (or None at the start). A Move is a
-column index 0-6; the human types it as 1-7. Red always moves first.
+State representation: an immutable ``State`` holding the 42 places row by
+row from the bottom left (``"Red"``, ``"Yellow"`` or None), and the point
+``(column, row)`` where the most recent disc landed (or None at the start).
+A Move is a column index 0-6; the human types it as 1-7. Red always moves
+first.
 """
 
 from dataclasses import dataclass
@@ -14,46 +15,37 @@ from rich.table import Table
 from rich.text import Text
 
 from games.framework import DRAW
+from games.grid import Grid
 
 COLUMNS = 7
 ROWS = 6
 RED = "Red"
 YELLOW = "Yellow"
+GRID = Grid(COLUMNS, ROWS, 4)
 
 
 @dataclass(frozen=True)
 class State:
-    """A Connect Four position: ``columns`` holds each column's discs from
-    the bottom up, and ``last_move`` is the column of the most recent Move."""
+    """A Connect Four position: ``cells`` holds the disc on every place, row
+    by row from the bottom left, and ``last_move`` is the point where the
+    most recent disc landed."""
 
-    columns: tuple = ((),) * COLUMNS
-    last_move: int | None = None
-
-
-def disc_at(state, column, row):
-    """Return the disc at ``column`` (0-6) and ``row`` (0 = bottom), or
-    None if that place is empty."""
-    discs = state.columns[column]
-    return discs[row] if row < len(discs) else None
+    cells: tuple = (None,) * (COLUMNS * ROWS)
+    last_move: tuple | None = None
 
 
-def windows():
-    """Yield every window of four places as ``((col, row), ...)``."""
-    for col in range(COLUMNS):
-        for row in range(ROWS):
-            for dc, dr in ((1, 0), (0, 1), (1, 1), (1, -1)):
-                end_col, end_row = col + 3 * dc, row + 3 * dr
-                if 0 <= end_col < COLUMNS and 0 <= end_row < ROWS:
-                    yield tuple((col + i * dc, row + i * dr) for i in range(4))
+def landing_row(state, column):
+    """The lowest empty row in ``column``, or None if it is full."""
+    for row in range(ROWS):
+        if GRID.piece(state.cells, (column, row)) is None:
+            return row
+    return None
 
 
-WINDOWS = tuple(windows())
-# The windows through each place, in ``WINDOWS`` order.
-WINDOWS_THROUGH = {
-    (col, row): tuple(w for w in WINDOWS if (col, row) in w)
-    for col in range(COLUMNS)
-    for row in range(ROWS)
-}
+def is_full(state, column):
+    """Whether ``column`` has no empty place left."""
+    return GRID.piece(state.cells, (column, ROWS - 1)) is not None
+
 
 # Legal Moves are listed centre first: the computer's search tries them in
 # this order, which prunes more, and among equally good Moves plays the first.
@@ -69,20 +61,6 @@ DEFAULT_DEPTH = 6
 WINDOW_SCORES = {1: 1, 2: 10, 3: 50}
 
 
-def _find_four(state):
-    """Return the first window of four held by one Side, or None. Only the
-    most recent Move can have made one, so only windows through it are
-    checked."""
-    if state.last_move is None:
-        return None
-    column = state.last_move
-    first = disc_at(state, column, len(state.columns[column]) - 1)
-    for window in WINDOWS_THROUGH[column, len(state.columns[column]) - 1]:
-        if all(disc_at(state, c, r) == first for c, r in window):
-            return window
-    return None
-
-
 # --------------------------------------------------------------------------
 # Rich rendering (pure: builds renderables, does no I/O)
 # --------------------------------------------------------------------------
@@ -95,13 +73,13 @@ WIN_STYLE = "bold white on green"
 
 
 def _place_text(state, column, row, win):
-    disc = disc_at(state, column, row)
+    disc = GRID.piece(state.cells, (column, row))
     if disc is None:
         return Text(" ")
     text = Text(DISC_GLYPHS[disc], style=SIDE_STYLES[disc])
     if (column, row) in win:
         text.stylize(WIN_STYLE)
-    elif column == state.last_move and row == len(state.columns[column]) - 1:
+    elif (column, row) == state.last_move:
         text.stylize(LAST_MOVE_STYLE)
     return text
 
@@ -121,7 +99,7 @@ def board_table(state):
         table.add_column(
             Text(str(column + 1), style=HEADER_STYLE), justify="center", min_width=1
         )
-    win = _find_four(state) or ()
+    win = GRID.line(state.cells, state.last_move) or ()
     for row in reversed(range(ROWS)):
         table.add_row(
             *(_place_text(state, column, row, win) for column in range(COLUMNS))
@@ -159,19 +137,19 @@ class ConnectFour:
 
     def to_move(self, state):
         # Red when both Sides have as many discs.
-        discs = sum(len(column) for column in state.columns)
+        discs = COLUMNS * ROWS - state.cells.count(None)
         return RED if discs % 2 == 0 else YELLOW
 
     def legal_moves(self, state):
         # The columns that still have room, centre first.
-        if _find_four(state) is not None:
+        if GRID.line(state.cells, state.last_move) is not None:
             return []
-        return [c for c in MOVE_ORDER if len(state.columns[c]) < ROWS]
+        return [c for c in MOVE_ORDER if not is_full(state, c)]
 
     def move_problem(self, state, move):
         if not 0 <= move < COLUMNS:
             return OUT_OF_RANGE
-        if len(state.columns[move]) >= ROWS:
+        if is_full(state, move):
             return FULL
         return None
 
@@ -179,35 +157,21 @@ class ConnectFour:
         problem = self.move_problem(state, move)
         if problem is not None:
             raise ValueError("column %r is %s" % (move, problem))
-        columns = list(state.columns)
-        columns[move] = columns[move] + (self.to_move(state),)
-        return State(tuple(columns), move)
+        point = (move, landing_row(state, move))
+        return State(GRID.place(state.cells, point, self.to_move(state)), point)
 
     def result(self, state):
-        four = _find_four(state)
+        four = GRID.line(state.cells, state.last_move)
         if four is not None:
-            return disc_at(state, *four[0])
-        if all(len(column) == ROWS for column in state.columns):
+            return GRID.piece(state.cells, four[0])
+        if None not in state.cells:
             return DRAW
         return None
 
     def heuristic(self, state, side):
         # Every open window of four (holding discs of only one Side) counts
         # for the Side holding it, more the fuller it is.
-        score = 0
-        for window in WINDOWS:
-            mine = theirs = 0
-            for c, r in window:
-                disc = disc_at(state, c, r)
-                if disc == side:
-                    mine += 1
-                elif disc is not None:
-                    theirs += 1
-            if mine and not theirs:
-                score += WINDOW_SCORES[mine]
-            elif theirs and not mine:
-                score -= WINDOW_SCORES[theirs]
-        return score
+        return GRID.score(state.cells, side, WINDOW_SCORES)
 
     def unbeatable(self, depth):
         return False

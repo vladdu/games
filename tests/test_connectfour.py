@@ -38,10 +38,11 @@ class RulesTests(unittest.TestCase):
 
     def test_discs_fall_to_the_lowest_empty_row(self):
         state = play(4, 4, 3)
-        self.assertEqual(c4.disc_at(state, 3, 0), RED)
-        self.assertEqual(c4.disc_at(state, 3, 1), YELLOW)
-        self.assertEqual(c4.disc_at(state, 2, 0), RED)
-        self.assertIsNone(c4.disc_at(state, 2, 1))
+        self.assertEqual(c4.GRID.piece(state.cells, (3, 0)), RED)
+        self.assertEqual(c4.GRID.piece(state.cells, (3, 1)), YELLOW)
+        self.assertEqual(c4.GRID.piece(state.cells, (2, 0)), RED)
+        self.assertIsNone(c4.GRID.piece(state.cells, (2, 1)))
+        self.assertEqual(state.last_move, (2, 0))
 
     def test_game_in_progress_has_no_result(self):
         self.assertIsNone(game.result(game.initial_state()))
@@ -235,6 +236,16 @@ class RenderingTests(unittest.TestCase):
             if ch in "RY" and (style.bgcolor is None or style.bgcolor.name != "green")
         ]
         self.assertEqual(others, ["Y"] * 3)
+
+    def test_a_line_of_five_is_all_on_green(self):
+        # Red's fifth disc, in column 3, joins 1-2 and 4-5 on the bottom row.
+        _, glyphs = render(play(1, 1, 2, 2, 4, 4, 5, 5, 3))
+        green = [
+            ch
+            for _, ch, style in glyphs
+            if style.bgcolor is not None and style.bgcolor.name == "green"
+        ]
+        self.assertEqual(green, ["R"] * 5)
 
 
 class TerminalIOTests(unittest.TestCase):
