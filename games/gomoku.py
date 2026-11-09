@@ -197,8 +197,9 @@ REJECTION_MESSAGES = {
     TAKEN: "%s is taken; pick an empty point.",
 }
 
-# A letter and a whole number (after lower-casing), spaces allowed between.
-POINT_PATTERN = re.compile(r"([a-z])\s*([0-9]+)")
+# A letter and a number of up to 3 digits (after lower-casing), spaces allowed
+# between; the digit limit keeps int() from refusing a huge number.
+POINT_PATTERN = re.compile(r"([a-z])\s*([0-9]{1,3})")
 
 
 class Gomoku:

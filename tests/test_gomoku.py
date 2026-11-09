@@ -348,6 +348,11 @@ class ParseMoveTests(unittest.TestCase):
                     error, "Please enter a point such as e5 (got %r)." % text.strip()
                 )
 
+    def test_a_huge_row_number_is_refused_not_a_crash(self):
+        move, error = game.parse_move("a" + "1" * 5000)
+        self.assertIsNone(move)
+        self.assertTrue(error)
+
     def test_move_text_and_description(self):
         self.assertEqual(game.move_text((4, 4)), "e5")
         self.assertEqual(game.move_text((9, 2)), "j3")
