@@ -87,8 +87,10 @@ class Grid:
     def _whole_line(self, cells, point, window, piece):
         # Walk back from the point to the Line's start, then forward to its end.
         width = self.width
-        dc, dr = (window[1] % width - window[0] % width,
-                  window[1] // width - window[0] // width)
+        dc, dr = (
+            window[1] % width - window[0] % width,
+            window[1] // width - window[0] // width,
+        )
         c, r = point
         while self._on(c - dc, r - dr) and self.piece(cells, (c - dc, r - dr)) == piece:
             c, r = c - dc, r - dr

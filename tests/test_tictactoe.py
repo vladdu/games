@@ -15,8 +15,8 @@ from games.framework import (
     Started,
     play_game,
 )
-from games.tictactoe import GRID, OUT_OF_RANGE, TAKEN, O, State, X
 from games.tictactoe import GAME_TYPE as game
+from games.tictactoe import GRID, OUT_OF_RANGE, TAKEN, O, State, X
 from tests.support import (
     GOLDEN_INPUT,
     ScriptedIO,
