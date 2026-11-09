@@ -1,4 +1,4 @@
-Status: ready-for-agent
+Status: resolved
 
 # Spec: One Grid module for the Line Game types
 
