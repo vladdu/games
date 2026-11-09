@@ -24,3 +24,7 @@ fmt:
 
 # Lint and test
 check: lint test
+
+# Run the tests, skipping the slow ones (marked @slow in tests/)
+test-fast *args:
+    FAST=1 uv run python -m unittest {{args}}

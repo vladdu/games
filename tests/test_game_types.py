@@ -5,6 +5,7 @@ import random
 import unittest
 
 from games.registry import GAME_TYPES
+from tests.support import slow
 
 # Text a human might type; any of it that parses to a Move that is not
 # legal must be refused with a reason.
@@ -116,6 +117,7 @@ class SharedGameTypeTests(unittest.TestCase):
                         game_type.heuristic(state, side), (int, float)
                     )
 
+    @slow
     def test_renders_every_state(self):
         import io
 

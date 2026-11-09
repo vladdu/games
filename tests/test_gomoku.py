@@ -21,7 +21,7 @@ from games.framework import (
 )
 from games.gomoku import BLACK, OFF_BOARD, TAKEN, WHITE
 from games.gomoku import GAME_TYPE as game
-from tests.support import ScriptedIO, run_program
+from tests.support import ScriptedIO, run_program, slow
 
 
 def point(text):
@@ -307,6 +307,7 @@ class ComputerTests(unittest.TestCase):
         first = scripted.of_type(Moved)[0]
         self.assertEqual((first.side, first.move), (WHITE, point("f5")))
 
+    @slow
     def test_computer_against_itself_ends_with_a_result(self):
         computer = Computer(game.default_depth)
         scripted = ScriptedIO()

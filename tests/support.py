@@ -4,8 +4,12 @@ in-process, and running the program as a process."""
 import os
 import subprocess
 import sys
+import unittest
 
 from games.framework import GameOver, Moved, Started
+
+# `just test-fast` sets FAST=1 to skip the tests marked @slow.
+slow = unittest.skipIf(os.environ.get("FAST"), "slow; FAST is set")
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 
