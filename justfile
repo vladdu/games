@@ -22,8 +22,12 @@ lint:
 fmt:
     uv run ruff format .
 
-# Lint and test
-check: lint test
+# Fail if any file needs formatting
+fmt-check:
+    uv run ruff format --check .
+
+# Lint, format check and test
+check: lint fmt-check test
 
 # Run the tests, skipping the slow ones (marked @slow in tests/)
 test-fast *args:
