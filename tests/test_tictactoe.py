@@ -15,7 +15,7 @@ from games.framework import (
     Started,
     play_game,
 )
-from games.tictactoe import EMPTY, OUT_OF_RANGE, TAKEN, O, State, X
+from games.tictactoe import GRID, OUT_OF_RANGE, TAKEN, O, State, X
 from games.tictactoe import GAME_TYPE as game
 from tests.support import (
     GOLDEN_INPUT,
@@ -26,11 +26,21 @@ from tests.support import (
 )
 
 
-def board_from(s, last_move=None):
+def board_from(s, last=None):
     """Build a state from a 9-char string using X, O and '.' for empty,
-    indexed left to right and top to bottom."""
+    written as drawn: left to right and top to bottom. ``last`` is the Cell
+    number of the most recent Move; without it, a board holding a Line gets
+    a point of that Line as its last Move, so ``result`` sees it."""
     assert len(s) == 9
-    return State(tuple(EMPTY if ch == "." else ch for ch in s), last_move)
+    rows = [s[i : i + 3] for i in (6, 3, 0)]  # bottom row first
+    cells = tuple(None if ch == "." else ch for ch in "".join(rows))
+    if last is not None:
+        return State(cells, ((last - 1) % 3, (last - 1) // 3))
+    for i in range(9):
+        point = (i % 3, i // 3)
+        if GRID.line(cells, point) is not None:
+            return State(cells, point)
+    return State(cells)
 
 
 def play(*numbers):
@@ -81,7 +91,7 @@ class SideToMoveTests(unittest.TestCase):
         self.assertEqual(game.to_move(play(5, 7)), X)
 
     def test_a_move_places_the_mark_of_the_side_to_move(self):
-        self.assertEqual(play(5, 7), board_from("O...X....", last_move=0))
+        self.assertEqual(play(5, 7), board_from("O...X....", 7))
 
 
 class ComputerTests(unittest.TestCase):
@@ -165,16 +175,16 @@ class GameTests(unittest.TestCase):
             scripted.events,
             [
                 Started(players, game.initial_state()),
-                Moved(X, 4, board_from("....X....", 4)),
-                Moved(O, 0, board_from("O...X....", 0)),
-                Moved(X, 1, board_from("OX..X....", 1)),
-                Moved(O, 7, board_from("OX..X..O.", 7)),
-                Moved(X, 3, board_from("OX.XX..O.", 3)),
-                Moved(O, 5, board_from("OX.XXO.O.", 5)),
-                Moved(X, 8, board_from("OX.XXO.OX", 8)),
-                Moved(O, 2, board_from("OXOXXO.OX", 2)),
-                Moved(X, 6, board_from("OXOXXOXOX", 6)),
-                GameOver(DRAW, board_from("OXOXXOXOX", 6)),
+                Moved(X, 4, board_from("....X....", 5)),
+                Moved(O, 6, board_from("O...X....", 7)),
+                Moved(X, 7, board_from("OX..X....", 8)),
+                Moved(O, 1, board_from("OX..X..O.", 2)),
+                Moved(X, 3, board_from("OX.XX..O.", 4)),
+                Moved(O, 5, board_from("OX.XXO.O.", 6)),
+                Moved(X, 2, board_from("OX.XXO.OX", 3)),
+                Moved(O, 8, board_from("OXOXXO.OX", 9)),
+                Moved(X, 0, board_from("OXOXXOXOX", 1)),
+                GameOver(DRAW, board_from("OXOXXOXOX", 1)),
             ],
         )
         self.assertEqual(scripted.prompts, [X] * 5)
@@ -187,12 +197,12 @@ class GameTests(unittest.TestCase):
             scripted.events,
             [
                 Started(players, game.initial_state()),
-                Moved(X, 0, board_from("X........", 0)),
-                Moved(O, 1, board_from("XO.......", 1)),
-                Moved(X, 3, board_from("XO.X.....", 3)),
-                Moved(O, 2, board_from("XOOX.....", 2)),
-                Moved(X, 6, board_from("XOOX..X..", 6)),
-                GameOver(X, board_from("XOOX..X..", 6)),
+                Moved(X, 6, board_from("X........", 7)),
+                Moved(O, 7, board_from("XO.......", 8)),
+                Moved(X, 3, board_from("XO.X.....", 4)),
+                Moved(O, 8, board_from("XOOX.....", 9)),
+                Moved(X, 0, board_from("XOOX..X..", 1)),
+                GameOver(X, board_from("XOOX..X..", 1)),
             ],
         )
 
@@ -206,13 +216,13 @@ class GameTests(unittest.TestCase):
             [
                 MoveRejected(9, OUT_OF_RANGE),
                 MoveRejected(-1, OUT_OF_RANGE),
-                Moved(X, 4, board_from("....X....", 4)),
-                Moved(O, 0, board_from("O...X....", 0)),
+                Moved(X, 4, board_from("....X....", 5)),
+                Moved(O, 6, board_from("O...X....", 7)),
                 MoveRejected(4, TAKEN),
-                MoveRejected(0, TAKEN),
+                MoveRejected(6, TAKEN),
             ],
         )
-        self.assertEqual(scripted.events[7], Moved(X, 1, board_from("OX..X....", 1)))
+        self.assertEqual(scripted.events[7], Moved(X, 7, board_from("OX..X....", 8)))
 
     def test_quitting_propagates(self):
         scripted = ScriptedIO()
@@ -288,7 +298,7 @@ class RenderingTests(unittest.TestCase):
         for ch in "┌┬┐├┼┤└┴┘│─":
             self.assertIn(ch, out, ch)
         lines = out.splitlines()
-        # Horizontal separators run the full width with junctions.
+        # Horizontal separators span the full width with junctions.
         self.assertEqual(sum("┼" in line for line in lines), 2)
         self.assertEqual(lines[0].count("┬"), 2)
 
@@ -338,11 +348,11 @@ class TerminalIOTests(unittest.TestCase):
         return out.getvalue()
 
     def test_rejected_move_uses_keypad_number(self):
-        self.assertIn("Cell 7 is already taken", self._shown(MoveRejected(0, TAKEN)))
+        self.assertIn("Cell 7 is already taken", self._shown(MoveRejected(6, TAKEN)))
         self.assertIn("10 is out of range", self._shown(MoveRejected(9, OUT_OF_RANGE)))
 
     def test_a_human_win_is_impossible_only_at_full_difficulty(self):
-        won = board_from("XXXOO....", 2)
+        won = board_from("XXXOO....")
         full = self._shown(
             Started((Human(), Computer()), game.initial_state()), GameOver(X, won)
         )
