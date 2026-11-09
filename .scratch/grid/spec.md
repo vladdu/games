@@ -28,11 +28,11 @@ Add one deep module, `games/grid.py`, and have all three Game types use it (ADR 
   - the windows of `n` points in each of the four directions
   - the windows through each point
 - **Cells**: a flat tuple of `width * height` places, row by row from the bottom left, so point `(column, row)` is index `row * width + column`. An empty place is `None`.
-- **Operations** (names to be fixed in ticket 01). Each takes the cells:
+- **Operations** (named in ticket 01: `piece`, `place`, `line`, `score`). Each takes the cells:
   - the piece at a point
   - the cells after placing a piece at a point
-  - the Line through a point: the whole unbroken run of `n` or more of that point's Side in any direction, as a tuple of points from one end; `None` if there isn't one, or if the point is empty
-  - the window heuristic for a Side, given a score table `{count: score}`: each window holding only that Side's pieces adds `table[count]`, each holding only the other Side's subtracts it, and mixed or empty windows count 0
+  - the Line through a point: all `n` or more unbroken pieces of that point's Side in one direction, as a tuple of points from one end; `None` if there isn't one, or if the point is empty or None
+  - the window heuristic for a Side, given a score table `{count: score}`: each window holding only that Side's pieces adds `window_scores[count]`, each holding only the other Side's subtracts it, and mixed or empty windows count 0
 - **Win rule**: N or more wins. There is no option for "exactly N".
 - **`last_move`**: every State records the point where the last piece landed (None at the start). `result` asks the Grid for the Line through `last_move`. A State with a Line but no `last_move` has no Result, which holds for every State built by `apply_move`.
 - **Per Game type**:
