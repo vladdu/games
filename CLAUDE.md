@@ -11,3 +11,7 @@ The five default triage labels, recorded as a `Status:` line in each issue file.
 ### Domain docs
 
 Single-context: `GLOSSARY.md` and `docs/adr/` at the repo root. See `docs/agents/domain.md`.
+
+### Commands
+
+`justfile`: run `just test-fast` while iterating and `just check` before committing.
