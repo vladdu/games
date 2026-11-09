@@ -48,6 +48,12 @@ def windows():
 
 
 WINDOWS = tuple(windows())
+# The windows through each place, in ``WINDOWS`` order.
+WINDOWS_THROUGH = {
+    (col, row): tuple(w for w in WINDOWS if (col, row) in w)
+    for col in range(COLUMNS)
+    for row in range(ROWS)
+}
 
 # Legal Moves are listed centre first: the computer's search tries them in
 # this order, which prunes more, and among equally good Moves plays the first.
@@ -64,12 +70,15 @@ WINDOW_SCORES = {1: 1, 2: 10, 3: 50}
 
 
 def _find_four(state):
-    """Return the first window of four held by one Side, or None."""
-    for window in WINDOWS:
-        first = disc_at(state, *window[0])
-        if first is not None and all(
-            disc_at(state, c, r) == first for c, r in window[1:]
-        ):
+    """Return the first window of four held by one Side, or None. Only the
+    most recent Move can have made one, so only windows through it are
+    checked."""
+    if state.last_move is None:
+        return None
+    column = state.last_move
+    first = disc_at(state, column, len(state.columns[column]) - 1)
+    for window in WINDOWS_THROUGH[column, len(state.columns[column]) - 1]:
+        if all(disc_at(state, c, r) == first for c, r in window):
             return window
     return None
 

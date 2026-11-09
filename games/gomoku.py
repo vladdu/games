@@ -101,24 +101,23 @@ WINDOW_SCORES = {1: 1, 2: 10, 3: 100, 4: 1000, 5: 1000}
 
 
 def _find_five(state):
-    """Return the Points of the first Winning five (the whole line, which
-    may be longer than five), or None."""
-    for row in range(SIZE):
-        for column in range(SIZE):
-            stone = stone_at(state, column, row)
-            if stone is None:
-                continue
-            for dc, dr in DIRECTIONS:
-                before = (column - dc, row - dr)
-                if on_board(*before) and stone_at(state, *before) == stone:
-                    continue  # Not the start of a line.
-                line = []
-                c, r = column, row
-                while on_board(c, r) and stone_at(state, c, r) == stone:
-                    line.append((c, r))
-                    c, r = c + dc, r + dr
-                if len(line) >= 5:
-                    return tuple(line)
+    """Return the Points of the Winning five (the whole line, which may be
+    longer than five), or None. Only the most recent Move can have made it,
+    so only the lines through ``last_move`` are checked."""
+    if state.last_move is None:
+        return None
+    column, row = state.last_move
+    stone = stone_at(state, column, row)
+    for dc, dr in DIRECTIONS:
+        c, r = column, row
+        while on_board(c - dc, r - dr) and stone_at(state, c - dc, r - dr) == stone:
+            c, r = c - dc, r - dr
+        line = []
+        while on_board(c, r) and stone_at(state, c, r) == stone:
+            line.append((c, r))
+            c, r = c + dc, r + dr
+        if len(line) >= 5:
+            return tuple(line)
     return None
 
 
