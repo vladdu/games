@@ -86,6 +86,10 @@ Game type shares: the Game type interface, the Game loop, Game events, the
 human and computer Players, the terminal Player I/O and the Session.
 `games/tictactoe.py`, `games/connectfour.py` and `games/gomoku.py` each hold one Game type: its
 rules, board rendering and the heuristic score the shared search uses.
+These three are won by a Line (N or more in a row), so they share
+`games/grid.py`: a `Grid(width, height, n)` that finds the Line through a
+point and counts the window heuristic. The Grid is not part of the Game type
+interface; a Game type without Lines ignores it.
 `games/registry.py` lists the Game types by name, `games/cli.py` is the
 command line, and `games/__main__.py` is the entry point. Adding a Game type
 takes only its module and an entry in the registry: the menu and `--help`
@@ -135,7 +139,7 @@ printf '1\ny\n5\n8\n4\n3\n1\nn\n' | uv run games
 Connect Four is played on a 7×6 board. Red always moves first; against the
 computer you choose whether to go first (you are Red if you do, Yellow otherwise). Type a column
 number from 1 to 7 to drop a disc: it falls to the lowest empty row of that
-column. Four in a row horizontally, vertically or diagonally wins, and a full
+column. Four or more in a row horizontally, vertically or diagonally wins, and a full
 board without one is a draw. Input that isn't a number, a column outside
 1-7, and a full column are refused, and you are asked again.
 
@@ -154,7 +158,8 @@ The board uses the same thin-lined grid, with the column numbers above it:
 ```
 
 Red discs (R) are bold red and Yellow discs (Y) bold yellow. The most recent
-move is shown in reverse video, and the winning four get a green background.
+move is shown in reverse video, and the whole winning Line (four or more) gets
+a green background.
 
 The computer is beatable: it uses a depth-limited alpha-beta search (6 moves
 ahead) that scores unfinished positions by their open windows of four. It
@@ -234,6 +239,9 @@ regenerate that file with the input listed in the test. The startup menu has
 its own golden transcript, `golden_menu_transcript.txt` (tests in
 `tests/test_menu.py`): the menu with some refused choices, then the same
 tic-tac-toe session.
+The Grid tests (`tests/test_grid.py`) cover the Line in each direction, a
+Line longer than N, a Line along the edge of a 7×6 grid, points outside a
+Line, placing pieces and the window heuristic.
 The Connect Four tests (`tests/test_connectfour.py`) cover the rules, whole
 Games played with a scripted Player I/O (including refused moves), the
 computer taking a win and blocking one from set-up positions, the board
