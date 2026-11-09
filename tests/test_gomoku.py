@@ -82,10 +82,10 @@ class RulesTests(unittest.TestCase):
 
     def test_a_stone_goes_on_any_empty_point(self):
         state = play("a1", "i9", "e5")
-        self.assertEqual(gomoku.stone_at(state, 0, 0), BLACK)
-        self.assertEqual(gomoku.stone_at(state, 8, 8), WHITE)
-        self.assertEqual(gomoku.stone_at(state, 4, 4), BLACK)
-        self.assertIsNone(gomoku.stone_at(state, 4, 5))
+        self.assertEqual(gomoku.GRID.piece(state.points, (0, 0)), BLACK)
+        self.assertEqual(gomoku.GRID.piece(state.points, (8, 8)), WHITE)
+        self.assertEqual(gomoku.GRID.piece(state.points, (4, 4)), BLACK)
+        self.assertIsNone(gomoku.GRID.piece(state.points, (4, 5)))
         self.assertEqual(len(game.legal_moves(state)), 78)
         self.assertNotIn(point("e5"), game.legal_moves(state))
 
@@ -150,8 +150,9 @@ class RulesTests(unittest.TestCase):
         self.assertLess(game.heuristic(four, BLACK), framework.WIN_SCORE / 2)
 
     def test_heuristic_stays_well_inside_the_win_score(self):
-        # Even if every window of five held four stones of one Side.
-        most = len(gomoku.WINDOWS) * max(gomoku.WINDOW_SCORES.values())
+        # Even if every window of five held four stones of one Side: a 9x9
+        # board has 45 rows, 45 columns and 50 diagonals of five.
+        most = len(gomoku.GRID.windows) * max(gomoku.WINDOW_SCORES.values())
         self.assertLess(most, framework.WIN_SCORE / 4)
         # And on Games in progress reached by playing random Moves.
         rng = random.Random(3)

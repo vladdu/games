@@ -17,12 +17,13 @@ from rich.table import Table
 from rich.text import Text
 
 from games.framework import DRAW
+from games.grid import Grid
 
 SIZE = 9
 BLACK = "Black"
 WHITE = "White"
 LETTERS = "abcdefghi"
-DIRECTIONS = ((1, 0), (0, 1), (1, 1), (1, -1))
+GRID = Grid(SIZE, SIZE, 5)
 
 
 @dataclass(frozen=True)
@@ -38,30 +39,6 @@ class State:
 def on_board(column, row):
     return 0 <= column < SIZE and 0 <= row < SIZE
 
-
-def index(column, row):
-    """The index into ``State.points`` of the Point at ``column`` and
-    ``row``."""
-    return row * SIZE + column
-
-
-def stone_at(state, column, row):
-    """Return the stone on the Point at ``column`` and ``row`` (0-8, 0 =
-    bottom left), or None if that Point is empty."""
-    return state.points[index(column, row)]
-
-
-def windows():
-    """Yield every window of five Points as a tuple of indices into
-    ``State.points``."""
-    for column in range(SIZE):
-        for row in range(SIZE):
-            for dc, dr in DIRECTIONS:
-                if on_board(column + 4 * dc, row + 4 * dr):
-                    yield tuple(index(column + i * dc, row + i * dr) for i in range(5))
-
-
-WINDOWS = tuple(windows())
 
 # Legal Moves and search Moves are listed nearest to the centre first:
 # among equally good Moves the computer's search plays the first.
@@ -100,27 +77,6 @@ DEFAULT_DEPTH = 3
 WINDOW_SCORES = {1: 1, 2: 10, 3: 100, 4: 1000, 5: 1000}
 
 
-def _find_five(state):
-    """Return the Points of the Winning five (the whole line, which may be
-    longer than five), or None. Only the most recent Move can have made it,
-    so only the lines through ``last_move`` are checked."""
-    if state.last_move is None:
-        return None
-    column, row = state.last_move
-    stone = stone_at(state, column, row)
-    for dc, dr in DIRECTIONS:
-        c, r = column, row
-        while on_board(c - dc, r - dr) and stone_at(state, c - dc, r - dr) == stone:
-            c, r = c - dc, r - dr
-        line = []
-        while on_board(c, r) and stone_at(state, c, r) == stone:
-            line.append((c, r))
-            c, r = c + dc, r + dr
-        if len(line) >= 5:
-            return tuple(line)
-    return None
-
-
 def point_text(move):
     """The text a human types for the Point ``move``, such as "e5"."""
     column, row = move
@@ -139,7 +95,7 @@ WIN_STYLE = "on green"
 
 
 def _stone_text(state, column, row, win):
-    stone = stone_at(state, column, row)
+    stone = GRID.piece(state.points, (column, row))
     if stone is None:
         return Text(" ")
     text = Text(STONE_GLYPHS[stone], style=SIDE_STYLES[stone])
@@ -161,7 +117,7 @@ def board_table(state):
     )
     for _ in range(SIZE):
         table.add_column(justify="center", min_width=1)
-    win = _find_five(state) or ()
+    win = GRID.line(state.points, state.last_move) or ()
     for row in reversed(range(SIZE)):
         table.add_row(*(_stone_text(state, column, row, win) for column in range(SIZE)))
     return table
@@ -223,9 +179,9 @@ class Gomoku:
 
     def legal_moves(self, state):
         # The empty Points, nearest to the centre first.
-        if _find_five(state) is not None:
+        if GRID.line(state.points, state.last_move) is not None:
             return []
-        return [p for p in POINT_ORDER if stone_at(state, *p) is None]
+        return [p for p in POINT_ORDER if GRID.piece(state.points, p) is None]
 
     def search_moves(self, state):
         # The empty Points next to a stone (diagonals too), nearest to the
@@ -236,13 +192,13 @@ class Gomoku:
         return [
             p
             for p in empty
-            if any(stone_at(state, *n) is not None for n in NEIGHBOURS[p])
+            if any(GRID.piece(state.points, n) is not None for n in NEIGHBOURS[p])
         ]
 
     def move_problem(self, state, move):
         if not on_board(*move):
             return OFF_BOARD
-        if stone_at(state, *move) is not None:
+        if GRID.piece(state.points, move) is not None:
             return TAKEN
         return None
 
@@ -250,14 +206,12 @@ class Gomoku:
         problem = self.move_problem(state, move)
         if problem is not None:
             raise ValueError("point %s is %s" % (point_text(move), problem))
-        points = list(state.points)
-        points[index(*move)] = self.to_move(state)
-        return State(tuple(points), move)
+        return State(GRID.place(state.points, move, self.to_move(state)), move)
 
     def result(self, state):
-        five = _find_five(state)
+        five = GRID.line(state.points, state.last_move)
         if five is not None:
-            return stone_at(state, *five[0])
+            return GRID.piece(state.points, five[0])
         if None not in state.points:
             return DRAW
         return None
@@ -265,21 +219,7 @@ class Gomoku:
     def heuristic(self, state, side):
         # Every open window of five (holding stones of only one Side)
         # counts for the Side holding it, more the fuller it is.
-        points = state.points
-        score = 0
-        for window in WINDOWS:
-            mine = theirs = 0
-            for index in window:
-                stone = points[index]
-                if stone == side:
-                    mine += 1
-                elif stone is not None:
-                    theirs += 1
-            if mine and not theirs:
-                score += WINDOW_SCORES[mine]
-            elif theirs and not mine:
-                score -= WINDOW_SCORES[theirs]
-        return score
+        return GRID.score(state.points, side, WINDOW_SCORES)
 
     def unbeatable(self, depth):
         return False
